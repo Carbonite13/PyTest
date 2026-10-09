@@ -228,3 +228,26 @@ Error Response: {
     "status": "error",
     "message": ""
 }
+
+---
+
+## Session Privacy & Host Admission Control
+
+### Session Host Allocation
+- The first peer joining a room becomes the **Meeting Host** (`host_peer_id`).
+- When a new peer attempts to join an existing room, they are placed in a **Waiting Room** queue.
+- The server sends a `waiting_for_host` signal to the joining peer and a `join_request_recvd` signal to the Host.
+
+### Host Controls
+- **`admit_peer`**: Host sends an `admit_peer` signal with `target_peer_id` to approve entry. The admitted peer receives `room_info` and joins WebRTC signaling.
+- **`reject_peer`**: Host sends a `reject_peer` signal to deny entry. The waiting peer receives `join_rejected`.
+
+---
+
+## Audio Stream Ingestion & Session-Based Transcription Logging
+
+### Speech-to-Text Processing Pipeline ([`Pot/core/audio_pipeline.py`](file:///home/datura/Desktop/PyTest/Pot/core/audio_pipeline.py))
+- **`SpeechToTextEngine`**: Modular STT processor converting raw audio frames (`audio/webm`) into structured transcript entries.
+- **`SessionTranscriptLogger`**: Session-level file logger. Creates and appends transcripts to a single meeting log file:
+  `log_audio_[room_id]_[time]_transcript.log` (e.g. `logs/log_audio_session-101_20261009_223334_transcript.log`).
+- **Live Stream (SSE)**: Broadcasts transcribed speech events out to external API subscribers on `GET /rtc/rooms/{room_id}/audio-stream`.

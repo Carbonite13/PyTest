@@ -34,9 +34,11 @@ class Peer:
 
 @dataclass
 class Room:
-    """Represents a signaling room that groups peers together"""
+    """Represents a privacy-enabled signaling room that groups peers together"""
     room_id: str
+    host_peer_id: Optional[str] = None
     peers: dict[str, Peer] = field(default_factory=dict)
+    waiting_peers: dict[str, Peer] = field(default_factory=dict)
 
     @property
     def peer_count(self) -> int:
@@ -45,8 +47,11 @@ class Room:
     def info(self) -> dict:
         return {
             "room_id": self.room_id,
+            "host_peer_id": self.host_peer_id,
             "peer_count": self.peer_count,
+            "waiting_count": len(self.waiting_peers),
             "peers": [p.info() for p in self.peers.values()],
+            "waiting": [p.info() for p in self.waiting_peers.values()],
         }
 
 
@@ -95,31 +100,90 @@ class RoomManager:
 
     # ── Room lifecycle ─────────────────────────────────────────
 
+    # ── Room lifecycle & Privacy Admission ──────────────────────────────
+
     def join_room(self, peer_id: str, room_id: str, display_name: Optional[str] = None) -> Room:
         """
-        Add a peer to a room, creating the room if it doesn't exist.
-        A peer can only be in one room at a time.
+        Add a peer to a room. First joining peer becomes the meeting host.
+        Subsequent peers join or are placed in waiting list depending on host presence.
         """
         peer = self._peers.get(peer_id)
         if peer is None:
             raise ValueError(f"Unknown peer: {peer_id}")
 
-        # leave current room first if already in one
         if peer.room_id and peer.room_id != room_id:
             self._leave_room_internal(peer)
 
-        # create room on demand
         if room_id not in self._rooms:
-            self._rooms[room_id] = Room(room_id=room_id)
-            logger.info(f"Room created: {room_id}")
+            # First peer creates room and becomes HOST
+            room = Room(room_id=room_id, host_peer_id=peer_id)
+            self._rooms[room_id] = room
+            logger.info(f"Room created: {room_id} (Host: {peer_id})")
+        else:
+            room = self._rooms[room_id]
+            if not room.host_peer_id:
+                room.host_peer_id = peer_id
 
-        room = self._rooms[room_id]
         peer.room_id = room_id
         peer.display_name = display_name
         room.peers[peer_id] = peer
+        room.waiting_peers.pop(peer_id, None)
 
         logger.info(f"Peer {peer_id} joined room {room_id} (peers={room.peer_count})")
         return room
+
+    def request_join(self, peer_id: str, room_id: str, display_name: Optional[str] = None) -> tuple[Room, bool]:
+        """
+        Request joining a room. If room doesn't exist, peer becomes host immediately (returns True).
+        If room exists with an active host, peer is added to waiting_peers list (returns False).
+        """
+        peer = self._peers.get(peer_id)
+        if peer is None:
+            raise ValueError(f"Unknown peer: {peer_id}")
+
+        peer.display_name = display_name
+        peer.room_id = room_id
+
+        if room_id not in self._rooms:
+            # Room doesn't exist -> Peer creates & becomes host
+            room = self.join_room(peer_id, room_id, display_name)
+            return room, True
+
+        room = self._rooms[room_id]
+        if room.host_peer_id == peer_id or peer_id in room.peers:
+            # Already host or admitted member
+            return room, True
+
+        # Place peer in waiting room for host approval
+        room.waiting_peers[peer_id] = peer
+        logger.info(f"Peer {peer_id} placed in waiting room for {room_id}")
+        return room, False
+
+    def admit_peer(self, host_peer_id: str, target_peer_id: str, room_id: str) -> Optional[Peer]:
+        """Admit a waiting peer if requested by the room host"""
+        room = self._rooms.get(room_id)
+        if not room or room.host_peer_id != host_peer_id:
+            return None
+
+        peer = room.waiting_peers.pop(target_peer_id, None)
+        if peer:
+            room.peers[target_peer_id] = peer
+            logger.info(f"Host {host_peer_id} admitted peer {target_peer_id} into room {room_id}")
+            return peer
+        return None
+
+    def reject_peer(self, host_peer_id: str, target_peer_id: str, room_id: str) -> Optional[Peer]:
+        """Reject a waiting peer if requested by the room host"""
+        room = self._rooms.get(room_id)
+        if not room or room.host_peer_id != host_peer_id:
+            return None
+
+        peer = room.waiting_peers.pop(target_peer_id, None)
+        if peer:
+            peer.room_id = None
+            logger.info(f"Host {host_peer_id} rejected peer {target_peer_id} from room {room_id}")
+            return peer
+        return None
 
     def leave_room(self, peer_id: str) -> Optional[str]:
         """Remove a peer from its current room. Returns the room_id left."""
@@ -131,10 +195,22 @@ class RoomManager:
     def _leave_room_internal(self, peer: Peer) -> Optional[str]:
         room_id = peer.room_id
         if room_id and room_id in self._rooms:
-            self._rooms[room_id].peers.pop(peer.peer_id, None)
-            if self._rooms[room_id].peer_count == 0:
+            room = self._rooms[room_id]
+            room.peers.pop(peer.peer_id, None)
+            room.waiting_peers.pop(peer.peer_id, None)
+
+            # Reassign host if host leaves and other peers remain
+            if room.host_peer_id == peer.peer_id:
+                if room.peers:
+                    room.host_peer_id = next(iter(room.peers.keys()))
+                    logger.info(f"Host left room {room_id}. Reassigned host to {room.host_peer_id}")
+                else:
+                    room.host_peer_id = None
+
+            if room.peer_count == 0 and len(room.waiting_peers) == 0:
                 del self._rooms[room_id]
                 logger.info(f"Room destroyed (empty): {room_id}")
+
         peer.room_id = None
         logger.info(f"Peer {peer.peer_id} left room {room_id}")
         return room_id

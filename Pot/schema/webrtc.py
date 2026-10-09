@@ -31,6 +31,13 @@ class SignalType(str, Enum):
     PEER_LEFT = "peer_left"
     ERROR = "error"
     ROOM_INFO = "room_info"
+    # Session privacy and host admission control signals
+    REQUEST_JOIN = "request_join"
+    ADMIT_PEER = "admit_peer"
+    REJECT_PEER = "reject_peer"
+    WAITING_FOR_HOST = "waiting_for_host"
+    JOIN_REQUEST_RECVD = "join_request_recvd"
+    JOIN_REJECTED = "join_rejected"
 
 
 class SDPPayload(BaseModel):
@@ -72,6 +79,12 @@ class ErrorPayload(BaseModel):
     message: str = Field(..., description="Human-readable error description")
 
 
+class AdmissionPayload(BaseModel):
+    """Payload sent by room host to admit or reject a waiting peer"""
+    room_id: str = Field(..., description="Room identifier")
+    target_peer_id: str = Field(..., description="Peer ID requesting admission")
+
+
 class SignalMessage(BaseModel):
     """
     Top-level envelope for all signaling messages.
@@ -82,6 +95,7 @@ class SignalMessage(BaseModel):
     ice: Optional[ICECandidatePayload] = Field(None, description="ICE candidate payload")
     join: Optional[RoomJoinPayload] = Field(None, description="Room join payload")
     leave: Optional[RoomLeavePayload] = Field(None, description="Room leave payload")
+    admission: Optional[AdmissionPayload] = Field(None, description="Host admission payload")
     peer_event: Optional[PeerEvent] = Field(None, description="Peer lifecycle event")
     error: Optional[ErrorPayload] = Field(None, description="Error payload")
 

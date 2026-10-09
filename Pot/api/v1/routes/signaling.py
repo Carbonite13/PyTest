@@ -165,6 +165,10 @@ async def _handle_signal(peer_id: str, msg: SignalMessage):
     match msg.type:
         case SignalType.JOIN:
             await _handle_join(peer_id, msg)
+        case SignalType.ADMIT_PEER:
+            await _handle_admit(peer_id, msg)
+        case SignalType.REJECT_PEER:
+            await _handle_reject(peer_id, msg)
         case SignalType.LEAVE:
             await _handle_leave(peer_id)
         case SignalType.OFFER | SignalType.ANSWER:
@@ -180,7 +184,7 @@ async def _handle_signal(peer_id: str, msg: SignalMessage):
 
 
 async def _handle_join(peer_id: str, msg: SignalMessage):
-    """Process a room join request"""
+    """Process a room join request with host privacy admission control"""
     if msg.join is None:
         await room_manager.send_to_peer(peer_id, {
             "type": SignalType.ERROR.value,
@@ -188,18 +192,37 @@ async def _handle_join(peer_id: str, msg: SignalMessage):
         })
         return
 
-    room = room_manager.join_room(peer_id, msg.join.room_id, msg.join.display_name)
+    room, is_admitted = room_manager.request_join(peer_id, msg.join.room_id, msg.join.display_name)
     peer = room_manager.get_peer(peer_id)
 
-    # tell the joining peer about existing members and ICE config
+    if not is_admitted:
+        # Peer is waiting for Host approval
+        await room_manager.send_to_peer(peer_id, {
+            "type": SignalType.WAITING_FOR_HOST.value,
+            "room_id": room.room_id,
+            "message": "Waiting for meeting host to admit you..."
+        })
+        # Notify Host about waiting join request
+        if room.host_peer_id:
+            await room_manager.send_to_peer(room.host_peer_id, {
+                "type": SignalType.JOIN_REQUEST_RECVD.value,
+                "peer_id": peer_id,
+                "display_name": msg.join.display_name or "Guest Peer",
+                "room_id": room.room_id,
+            })
+        logger.info(f"Peer {peer_id} waiting for host admission in room {room.room_id}")
+        return
+
+    # Admitted peer processing
     await room_manager.send_to_peer(peer_id, {
         "type": SignalType.ROOM_INFO.value,
         "room_id": room.room_id,
+        "is_host": (room.host_peer_id == peer_id),
         "peers": [p.info() for p in room.peers.values() if p.peer_id != peer_id],
         "ice_servers": [ICEServerConfig(urls=[settings.stun_server]).model_dump()],
     })
 
-    # notify existing peers
+    # Notify existing admitted room members
     await room_manager.broadcast_to_room(room.room_id, {
         "type": SignalType.PEER_JOINED.value,
         "peer_event": {
@@ -209,7 +232,54 @@ async def _handle_join(peer_id: str, msg: SignalMessage):
         },
     }, exclude_peer_id=peer_id)
 
-    logger.info(f"Peer {peer_id} joined room {room.room_id}")
+    logger.info(f"Peer {peer_id} joined room {room.room_id} (Is Host: {room.host_peer_id == peer_id})")
+
+
+async def _handle_admit(host_peer_id: str, msg: SignalMessage):
+    """Host admits waiting peer into room"""
+    if not msg.admission:
+        return
+
+    target_id = msg.admission.target_peer_id
+    room_id = msg.admission.room_id
+    admitted_peer = room_manager.admit_peer(host_peer_id, target_id, room_id)
+
+    if admitted_peer:
+        room = room_manager.get_room(room_id)
+        # Notify admitted peer
+        await room_manager.send_to_peer(target_id, {
+            "type": SignalType.ROOM_INFO.value,
+            "room_id": room_id,
+            "is_host": False,
+            "peers": [p.info() for p in room.peers.values() if p.peer_id != target_id],
+            "ice_servers": [ICEServerConfig(urls=[settings.stun_server]).model_dump()],
+        })
+        # Broadcast peer_joined to room
+        await room_manager.broadcast_to_room(room_id, {
+            "type": SignalType.PEER_JOINED.value,
+            "peer_event": {
+                "peer_id": target_id,
+                "display_name": admitted_peer.display_name,
+                "room_id": room_id,
+            },
+        }, exclude_peer_id=target_id)
+
+
+async def _handle_reject(host_peer_id: str, msg: SignalMessage):
+    """Host rejects waiting peer from room"""
+    if not msg.admission:
+        return
+
+    target_id = msg.admission.target_peer_id
+    room_id = msg.admission.room_id
+    rejected_peer = room_manager.reject_peer(host_peer_id, target_id, room_id)
+
+    if rejected_peer:
+        await room_manager.send_to_peer(target_id, {
+            "type": SignalType.JOIN_REJECTED.value,
+            "room_id": room_id,
+            "message": "Host rejected your request to join the meeting."
+        })
 
 
 async def _handle_leave(peer_id: str):
