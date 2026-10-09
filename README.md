@@ -35,20 +35,27 @@ We are solving the problem of people missing important information and strugglin
 Explain:
 
 - What is the problem?
+  
   People struggle to listen, understand, think, and respond simultaneously during conversations. As a result, they may miss important 
   information, forget decisions ,forget their assigned tasks, or fail to respond effectively.
 - Who is affected by it?
+  
   Sales professionals during pitches and negotiations.
   Customer support agents handling calls.
   Employees participating in meetings and team discussions.
   Students and individuals involved in important conversations.
 - Why is solving it important?
+  
   Missing key details can lead to poor decisions, misunderstandings, missed opportunities, and forgotten action items.
 - What are the limitations of existing solutions?
+  
   Note-taking apps: Require users to divide their attention between listening and writing.
+  
   Meeting transcription tools: Often focus on recording and summarising conversations rather than providing timely, goal-specific 
   assistance.
+  
   AI chat assistants: May require users to switch applications or manually enter context, interrupting the conversation.
+  
   Privacy concerns: Recording and processing confidential discussions can create security and trust issue
 
 ## Solution
