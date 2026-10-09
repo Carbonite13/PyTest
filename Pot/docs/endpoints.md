@@ -11,3 +11,9 @@ Error Response: {
     "status": "error",
     "message": ""
 }
+
+## WebRTC Signaling Endpoints
+See [webrtc.md](./webrtc.md) for full WebRTC signaling documentation including:
+- REST endpoints: `/rtc/ice-servers`, `/rtc/rooms`, `/rtc/rooms/{room_id}`
+- WebSocket signaling: `/rtc/ws`
+- Debug endpoint: `/debug/rtc`

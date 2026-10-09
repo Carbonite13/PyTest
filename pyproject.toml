@@ -23,7 +23,8 @@ server = [
     "requests (>=2.34.2,<3.0.0)",
     "websockets (>=17.2,<18.0)",
     "uvicorn[standard] (>=0.54.0,<0.55.0)",
-    "pydantic-settings (>=2.15.0,<3.0.0)"
+    "pydantic-settings (>=2.15.0,<3.0.0)",
+    "aiortc (>=1.15.0,<2.0.0)"
 ]
 test = [
     "pytest (>=9.1.1,<10.0.0)"

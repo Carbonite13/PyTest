@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # STUN server configuration
     stun_server: str = Field(default="stun:stun.l.google.com:19302", env="STUN_SERVER")
 
+    # TURN server configuration (optional, for full NAT traversal)
+    turn_server: Optional[str] = Field(default=None, env="TURN_SERVER")
+    turn_username: Optional[str] = Field(default=None, env="TURN_USERNAME")
+    turn_credential: Optional[str] = Field(default=None, env="TURN_CREDENTIAL")
+
     # profile
     profile: Literal["dev", "prod"] = Field(..., env="PROFILE")
 
