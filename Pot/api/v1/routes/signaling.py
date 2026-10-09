@@ -29,6 +29,7 @@ signalingRouter = APIRouter(
 # REST endpoints    
 from fastapi.responses import JSONResponse, StreamingResponse
 from Pot.core.audio_pipeline import audio_pipeline
+from Pot.core.session import session_manager
 
 @signalingRouter.get("/ice-servers")
 async def get_ice_servers():
@@ -73,43 +74,7 @@ async def get_room(room_id: str):
         ice_servers=[ICEServerConfig(urls=[settings.stun_server])],
     ).model_dump()
 
-
-# Audio Capture & Streaming Endpoints
-
-@signalingRouter.post("/rooms/{room_id}/peers/{peer_id}/audio")
-async def ingest_audio_stream(room_id: str, peer_id: str, request: Request):
-    """
-    Ingest audio stream chunk from client, buffer it, and transcribe internally.
-    """
-    body = await request.body()
-    if not body:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Empty audio payload"})
-
-    transcript = audio_pipeline.receive_audio_chunk(room_id, peer_id, body)
-    return {
-        "status": "success",
-        "room_id": room_id,
-        "peer_id": peer_id,
-        "bytes_received": len(body),
-        "transcript": transcript,
-    }
-
-
-@signalingRouter.get("/rooms/{room_id}/audio-stream")
-async def stream_transcribed_audio_out(room_id: str):
-    """
-    Stream captured audio & transcription events out of backend to external API/consumers via Server-Sent Events (SSE).
-    """
-    async def event_generator():
-        async for event in audio_pipeline.subscribe_stream(room_id):
-            yield f"data: {json.dumps(event)}\n\n"
-
-    logger.info(f"External API subscribed to audio stream for room '{room_id}'")
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
 # WebSocket signaling endpoint 
-
 @signalingRouter.websocket("/ws")
 async def signaling_websocket(websocket: WebSocket):
     """
@@ -246,6 +211,8 @@ async def _handle_admit(host_peer_id: str, msg: SignalMessage):
 
     if admitted_peer:
         room = room_manager.get_room(room_id)
+        # Sync session-level participant tracking
+        session_manager.admit_participant(room_id, target_id)
         # Notify admitted peer
         await room_manager.send_to_peer(target_id, {
             "type": SignalType.ROOM_INFO.value,

@@ -12,6 +12,7 @@ from Pot.core.log import module_log
 
 from Pot.api.v1.routes.debug import debugRouter
 from Pot.api.v1.routes.signaling import signalingRouter
+from Pot.api.v1.routes.sessions import sessionsRouter
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -48,6 +49,10 @@ def create_app(config: Settings) -> FastAPI:
     # WebRTC signaling router — always active
     logger.info("Including WebRTC signaling router")
     app.include_router(signalingRouter, prefix="/rtc")
+
+    # Meeting session lifecycle endpoints (create/get/end meeting, audio ingest)
+    logger.info("Including Sessions router")
+    app.include_router(sessionsRouter, prefix="/rtc")
     
     # UI Pages router
     from Pot.api.v1.routes.pages import pagesRouter
