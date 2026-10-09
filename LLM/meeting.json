@@ -1,7 +1,35 @@
 {
+  "meeting_id": null,
   "meeting_title": "Untitled Meeting",
   "meeting_status": "in_progress",
-  "started_at": "2026-10-09T10:57:46.942Z",
-  "last_updated": "2026-10-09T10:57:46.944Z",
-  "topics": []
+  "started_at": "2026-10-09T12:01:30.161Z",
+  "last_updated": "2026-10-09T12:08:01.483Z",
+  "topics": [
+    {
+      "topic_id": 1,
+      "topic_name": "Q3 Marketing Budget Shift",
+      "nature": "decision",
+      "status": "completed",
+      "start_time": "00:00:15",
+      "end_time": "00:00:45",
+      "summary_points": [
+        "Shift 20% of print budget to social media ads"
+      ],
+      "action_items": [
+        "- [Bob]: Draft revised budget proposal by Friday"
+      ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 2,
+      "topic_name": "Upcoming Product Launch Timeline",
+      "nature": "planning",
+      "status": "active",
+      "start_time": "00:01:10",
+      "end_time": "ongoing",
+      "summary_points": [],
+      "action_items": [],
+      "branched_from": null
+    }
+  ]
 }
