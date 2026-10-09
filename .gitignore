@@ -8,6 +8,8 @@ config/.env.*
 !config/.env.example
 .env
 
+*/.env
+
 # ignore other relevant local files
 # local work directory
 tmp/
