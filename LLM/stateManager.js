@@ -1,14 +1,14 @@
-﻿// StateManager.js
-import fs from "fs";
+﻿
 import { supabase } from "./supabase.js";
-
-const STATE_FILE = "meeting.json";
 
 export class StateManager {
   constructor(userId) {
+    if (!userId) {
+      throw new Error("A Supabase user ID is required.");
+    }
+
     this.userId = userId;
     this.state = this._defaultState();
-    this._writeToFile();
   }
 
   _defaultState() {
@@ -23,109 +23,140 @@ export class StateManager {
       topics: []
     };
   }
-  appendTranscript(text) {
-  if (!text?.trim()) return;
 
-  this.state.transcript +=
-    (this.state.transcript ? "\n" : "") + text.trim();
-
-  this._writeToFile();
-}
   async initializeMeeting() {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('id', this.userId)
-      .single();
+    if (this.state.meeting_id) {
+      return this.state.meeting_id;
+    }
 
-    const creatorName = profile?.display_name || 'Anonymous User';
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", this.userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.warn("Could not load profile name:", profileError.message);
+    }
+
+    const creatorName = profile?.display_name || "User";
 
     if (this.state.meeting_title === "Untitled Meeting") {
       this.state.meeting_title = `${creatorName}'s Meeting`;
-      this._writeToFile();
     }
 
     const { data, error } = await supabase
-      .from('meetings')
+      .from("meetings")
       .insert({
         title: this.state.meeting_title,
         status: this.state.meeting_status,
         started_at: this.state.started_at,
         last_updated: this.state.last_updated,
-        user_id: this.userId
+        user_id: this.userId,
+        summary: "",
+        transcript: ""
       })
-      .select('id')
+      .select("id")
       .single();
 
     if (error) {
-      console.error("❌ Failed to create meeting:", error);
-      throw error;
+      throw new Error(`Failed to create meeting: ${error.message}`);
     }
 
     this.state.meeting_id = data.id;
-    console.log(`✅ Meeting created for ${creatorName} (ID: ${this.state.meeting_id})`);
+
+    console.log(`Meeting created: ${data.id}`);
+    return data.id;
   }
 
   getState() {
     return this.state;
   }
 
-  async updateState(newState) {
-    this.state = { ...this.state, ...newState };
+  async appendTranscript(entry) {
+    if (typeof entry !== "string" || !entry.trim()) {
+      return;
+    }
+
+    this.state.transcript = [
+      this.state.transcript,
+      entry.trim()
+    ].filter(Boolean).join("\n");
+
     this.state.last_updated = new Date().toISOString();
-    this._writeToFile();
+
+    await this._syncMeeting();
+  }
+
+  async updateState(newState) {
+    this.state = {
+      ...this.state,
+      ...newState,
+      meeting_id: this.state.meeting_id,
+      transcript: this.state.transcript,
+      last_updated: new Date().toISOString()
+    };
+
     await this._syncToDatabase();
   }
 
-  async _syncToDatabase() {
+  async _syncMeeting() {
     if (!this.state.meeting_id) {
-      summary: this.state.meeting_summary || "",
-      transcript: this.state.transcript || "",
       await this.initializeMeeting();
     }
-    
-    const { error: meetingError } = await supabase
-      .from('meetings')
+
+    const { error } = await supabase
+      .from("meetings")
       .update({
         title: this.state.meeting_title,
         status: this.state.meeting_status,
-        last_updated: this.state.last_updated
+        last_updated: this.state.last_updated,
+        summary: this.state.meeting_summary || "",
+        transcript: this.state.transcript || ""
       })
-      .eq('id', this.state.meeting_id)
-      .eq('user_id', this.userId);
+      .eq("id", this.state.meeting_id)
+      .eq("user_id", this.userId);
 
-    if (meetingError) console.error("❌ Failed to update meeting:", meetingError);
-
-    if (this.state.topics.length > 0) {
-      const topicsToSync = this.state.topics.map(topic => ({
-        meeting_id: this.state.meeting_id,
-        topic_id: topic.topic_id,
-        topic_name: topic.topic_name,
-        nature: topic.nature,
-        status: topic.status,
-        start_time: topic.start_time,
-        end_time: topic.end_time || null,
-        summary_points: topic.summary_points || [],
-        action_items: topic.action_items || [],
-        branched_from: topic.branched_from,
-        updated_at: new Date().toISOString()
-      }));
-
-      const { error: topicsError } = await supabase
-        .from('topics')
-        .upsert(topicsToSync, { onConflict: 'meeting_id,topic_id' });
-
-      if (topicsError) console.error("❌ Failed to upsert topics:", topicsError);
-      else console.log(`✅ State synced to Supabase`);
+    if (error) {
+      throw new Error(`Failed to save meeting: ${error.message}`);
     }
   }
 
-  _writeToFile() {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(this.state, null, 2));
+  async _syncToDatabase() {
+    await this._syncMeeting();
+
+    if (!this.state.topics?.length) {
+      return;
+    }
+
+    const topicsToSync = this.state.topics.map((topic) => ({
+      meeting_id: this.state.meeting_id,
+      topic_id: topic.topic_id,
+      topic_name: topic.topic_name,
+      nature: topic.nature,
+      status: topic.status,
+      start_time: topic.start_time,
+      end_time: topic.end_time || null,
+      summary_points: topic.summary_points || [],
+      action_items: topic.action_items || [],
+      branched_from: topic.branched_from || null,
+      updated_at: new Date().toISOString()
+    }));
+
+    const { error } = await supabase
+      .from("topics")
+      .upsert(topicsToSync, {
+        onConflict: "meeting_id,topic_id"
+      });
+
+    if (error) {
+      throw new Error(`Failed to save topics: ${error.message}`);
+    }
   }
 
   async reset() {
+    // Start a new meeting; the previous meeting remains in Supabase.
     this.state = this._defaultState();
-    this._writeToFile();
+    await this.initializeMeeting();
   }
 }

@@ -84,12 +84,89 @@ const appState = {
   }
 };
 
+const STORAGE_KEYS = {
+  THEME: 'teapot_theme_key',
+  CUSTOMIZATION: 'teapot_customization_v1',
+  ROLE: 'teapot_role_v1',
+  ACCOUNT: 'teapot_account_v1'
+};
+
+/**
+ * Loads persisted user preferences and role configuration from localStorage
+ */
+function loadStoredPreferences() {
+  try {
+    const savedRole = localStorage.getItem(STORAGE_KEYS.ROLE);
+    if (savedRole) {
+      const parsed = JSON.parse(savedRole);
+      if (typeof parsed.roleDescription === 'string') {
+        appState.account.roleDescription = parsed.roleDescription;
+      }
+      if (Array.isArray(parsed.rolePoints)) {
+        appState.account.rolePoints = parsed.rolePoints.map((p, idx) => ({
+          id: p.id || `point-${Date.now()}-${idx}`,
+          text: typeof p === 'string' ? p : (p.text || ''),
+          isEditing: false
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load role from localStorage', e);
+  }
+
+  try {
+    const savedCustomization = localStorage.getItem(STORAGE_KEYS.CUSTOMIZATION);
+    if (savedCustomization) {
+      const parsed = JSON.parse(savedCustomization);
+      if (Array.isArray(parsed.priorities)) {
+        parsed.priorities.forEach((savedItem) => {
+          const match = appState.customization.priorities.find((p) => p.id === savedItem.id);
+          if (match && typeof savedItem.enabled === 'boolean') {
+            match.enabled = savedItem.enabled;
+          }
+        });
+      }
+      if (parsed.approach && typeof parsed.approach === 'object') {
+        Object.keys(parsed.approach).forEach((key) => {
+          if (key in appState.customization.approach) {
+            appState.customization.approach[key] = !!parsed.approach[key];
+          }
+        });
+      }
+      if (typeof parsed.responseStyle === 'string') {
+        appState.customization.responseStyle = parsed.responseStyle;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load customization from localStorage', e);
+  }
+
+  try {
+    const savedAccount = localStorage.getItem(STORAGE_KEYS.ACCOUNT);
+    if (savedAccount) {
+      const parsed = JSON.parse(savedAccount);
+      if (parsed.displayName) appState.account.displayName = parsed.displayName;
+      if (parsed.email) appState.account.email = parsed.email;
+      if (parsed.role) appState.account.role = parsed.role;
+      if (parsed.language) appState.account.language = parsed.language;
+      if (parsed.summaryLength) appState.account.summaryLength = parsed.summaryLength;
+      if (parsed.insights) {
+        Object.assign(appState.account.insights, parsed.insights);
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load account from localStorage', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  loadStoredPreferences();
   initThemeManager();
   initSidebarToggle();
   initViewNavigation();
   initMeetingControls();
   initAccountSettings();
+  initRoleManagement();
   initCustomizationControls();
   fetchConversationsHistory();
 });
@@ -222,7 +299,17 @@ function initViewNavigation() {
     startMeeting: document.getElementById('startMeetingView'),
     aroundGlobe: document.getElementById('aroundGlobeView'),
     accountSettings: document.getElementById('accountSettingsView'),
+    role: document.getElementById('roleView'),
     customization: document.getElementById('customizationView')
+  };
+
+  const viewTitles = {
+    home: 'Home',
+    startMeeting: 'Jump into the Conversation',
+    aroundGlobe: 'Around the Globe',
+    accountSettings: 'Account Settings',
+    role: 'Your Role & Objectives',
+    customization: 'Conversation Customization'
   };
 
   const navHomeLink = document.getElementById('navHomeLink');
@@ -231,14 +318,19 @@ function initViewNavigation() {
   const backToHomeBtn = document.getElementById('backToHomeBtn');
   const aroundGlobeBackBtn = document.getElementById('aroundGlobeBackBtn');
   const accountBackBtn = document.getElementById('accountBackBtn');
+  const roleBackBtn = document.getElementById('roleBackBtn');
   const customizationBackBtn = document.getElementById('customizationBackBtn');
+  const goToRoleBtn = document.getElementById('goToRoleBtn');
   const goToCustomizationBtn = document.getElementById('goToCustomizationBtn');
 
   const dropdownAccountLink = document.getElementById('dropdownAccountLink');
+  const dropdownRoleLink = document.getElementById('dropdownRoleLink');
   const dropdownPreferencesLink = document.getElementById('dropdownPreferencesLink');
   const headerPageTitle = document.getElementById('headerPageTitle');
 
-  function switchView(targetKey, titleText) {
+  function switchView(targetKey, titleText, updateHash = true) {
+    if (!views[targetKey]) return;
+
     Object.keys(views).forEach((key) => {
       if (views[key]) {
         if (key === targetKey) {
@@ -262,84 +354,141 @@ function initViewNavigation() {
       }
     }
 
-    if (headerPageTitle && titleText) {
-      headerPageTitle.textContent = titleText;
+    const title = titleText || viewTitles[targetKey] || 'Teapot';
+    if (headerPageTitle) {
+      headerPageTitle.textContent = title;
+    }
+
+    if (updateHash) {
+      const hashKey = targetKey === 'accountSettings' ? 'settings' : (targetKey === 'startMeeting' ? 'meeting' : (targetKey === 'aroundGlobe' ? 'globe' : targetKey));
+      if (window.location.hash !== `#${hashKey}`) {
+        window.location.hash = hashKey;
+      }
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function handleHashNavigation() {
+    const rawHash = (window.location.hash || '').replace('#', '').toLowerCase();
+    const routeMap = {
+      '': 'home',
+      'home': 'home',
+      'meeting': 'startMeeting',
+      'startmeeting': 'startMeeting',
+      'globe': 'aroundGlobe',
+      'aroundglobe': 'aroundGlobe',
+      'settings': 'accountSettings',
+      'accountsettings': 'accountSettings',
+      'account': 'accountSettings',
+      'role': 'role',
+      'roles': 'role',
+      'customization': 'customization',
+      'preferences': 'customization'
+    };
+    const targetKey = routeMap[rawHash] || 'home';
+    switchView(targetKey, viewTitles[targetKey], false);
+  }
+
+  window.addEventListener('hashchange', handleHashNavigation);
+
   if (jumpConversationLink) {
     jumpConversationLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('startMeeting', 'Jump into the Conversation');
+      switchView('startMeeting', viewTitles.startMeeting);
     });
   }
 
   if (navJumpLink) {
     navJumpLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('startMeeting', 'Jump into the Conversation');
+      switchView('startMeeting', viewTitles.startMeeting);
     });
   }
 
   if (navHomeLink) {
     navHomeLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('home', 'Home');
+      switchView('home', viewTitles.home);
     });
   }
 
   if (backToHomeBtn) {
     backToHomeBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('home', 'Home');
+      switchView('home', viewTitles.home);
     });
   }
 
   if (aroundGlobeBackBtn) {
     aroundGlobeBackBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('startMeeting', 'Jump into the Conversation');
+      switchView('startMeeting', viewTitles.startMeeting);
     });
   }
 
   if (accountBackBtn) {
     accountBackBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('home', 'Home');
+      switchView('home', viewTitles.home);
+    });
+  }
+
+  if (roleBackBtn) {
+    roleBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('accountSettings', viewTitles.accountSettings);
     });
   }
 
   if (customizationBackBtn) {
     customizationBackBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('accountSettings', 'Account Settings');
+      switchView('accountSettings', viewTitles.accountSettings);
+    });
+  }
+
+  if (goToRoleBtn) {
+    goToRoleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('role', viewTitles.role);
     });
   }
 
   if (goToCustomizationBtn) {
     goToCustomizationBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('customization', 'Customization');
+      switchView('customization', viewTitles.customization);
     });
   }
 
   if (dropdownAccountLink) {
     dropdownAccountLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('accountSettings', 'Account Settings');
+      switchView('accountSettings', viewTitles.accountSettings);
+    });
+  }
+
+  if (dropdownRoleLink) {
+    dropdownRoleLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('role', viewTitles.role);
     });
   }
 
   if (dropdownPreferencesLink) {
     dropdownPreferencesLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('customization', 'Customization');
+      switchView('customization', viewTitles.customization);
     });
   }
 
   window.__teapotSwitchView = switchView;
+
+  // Execute initial routing if hash is present
+  if (window.location.hash) {
+    handleHashNavigation();
+  }
 }
 
 /**
@@ -953,14 +1102,130 @@ function initMeetingControls() {
 }
 
 /**
- * Account Settings View Handler & State Management (Includes Your Role Section)
+ * Account Settings View Handler & State Management
  */
 function initAccountSettings() {
   const form = document.getElementById('accountSettingsForm');
   const resetBtn = document.getElementById('resetAccountSettingsBtn');
   const feedback = document.getElementById('accountSettingsFeedback');
 
-  // Your Role Elements
+  const nameInput = document.getElementById('settingDisplayName');
+  const emailInput = document.getElementById('settingEmail');
+  const roleInput = document.getElementById('settingRole');
+  const languageSelect = document.getElementById('settingLanguage');
+
+  // Populate form controls from appState
+  if (nameInput) nameInput.value = appState.account.displayName || '';
+  if (emailInput) emailInput.value = appState.account.email || '';
+  if (roleInput) roleInput.value = appState.account.role || '';
+  if (languageSelect) languageSelect.value = appState.account.language || 'en-US';
+
+  const summaryRadio = document.querySelector(`input[name="summaryLength"][value="${appState.account.summaryLength}"]`);
+  if (summaryRadio) summaryRadio.checked = true;
+
+  if (document.getElementById('insightDecisions')) document.getElementById('insightDecisions').checked = !!appState.account.insights.decisions;
+  if (document.getElementById('insightTasks')) document.getElementById('insightTasks').checked = !!appState.account.insights.tasks;
+  if (document.getElementById('insightRisks')) document.getElementById('insightRisks').checked = !!appState.account.insights.risks;
+  if (document.getElementById('insightSuggestions')) document.getElementById('insightSuggestions').checked = !!appState.account.insights.suggestions;
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      if (nameInput) appState.account.displayName = nameInput.value.trim();
+      if (emailInput) appState.account.email = emailInput.value.trim();
+      if (roleInput) appState.account.role = roleInput.value.trim();
+      if (languageSelect) appState.account.language = languageSelect.value;
+
+      const summaryLengthRadio = document.querySelector('input[name="summaryLength"]:checked');
+      if (summaryLengthRadio) appState.account.summaryLength = summaryLengthRadio.value;
+
+      appState.account.insights.decisions = document.getElementById('insightDecisions')?.checked || false;
+      appState.account.insights.tasks = document.getElementById('insightTasks')?.checked || false;
+      appState.account.insights.risks = document.getElementById('insightRisks')?.checked || false;
+      appState.account.insights.suggestions = document.getElementById('insightSuggestions')?.checked || false;
+
+      try {
+        localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(appState.account));
+      } catch (err) {
+        console.warn('Failed to save account settings to localStorage', err);
+      }
+
+      if (feedback) {
+        feedback.classList.remove('d-none');
+        feedback.className = 'sidebar-status-msg status-empty mt-3';
+        feedback.replaceChildren();
+
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-check-circle-fill text-success';
+        const span = document.createElement('span');
+        span.textContent = 'Account settings saved successfully.';
+
+        feedback.appendChild(icon);
+        feedback.appendChild(span);
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (nameInput) nameInput.value = 'Jane Doe';
+      if (emailInput) emailInput.value = 'jane.doe@example.com';
+      if (roleInput) roleInput.value = 'Product Manager';
+      if (languageSelect) languageSelect.value = 'en-US';
+
+      const balancedRadio = document.getElementById('summaryBalanced');
+      if (balancedRadio) balancedRadio.checked = true;
+
+      const insightDecisions = document.getElementById('insightDecisions');
+      const insightTasks = document.getElementById('insightTasks');
+      const insightRisks = document.getElementById('insightRisks');
+      const insightSuggestions = document.getElementById('insightSuggestions');
+
+      if (insightDecisions) insightDecisions.checked = true;
+      if (insightTasks) insightTasks.checked = true;
+      if (insightRisks) insightRisks.checked = false;
+      if (insightSuggestions) insightSuggestions.checked = true;
+
+      appState.account.displayName = 'Jane Doe';
+      appState.account.email = 'jane.doe@example.com';
+      appState.account.role = 'Product Manager';
+      appState.account.language = 'en-US';
+      appState.account.summaryLength = 'balanced';
+      appState.account.insights = {
+        decisions: true,
+        tasks: true,
+        risks: false,
+        suggestions: true
+      };
+
+      try {
+        localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(appState.account));
+      } catch (err) {
+        console.warn('Failed to save account settings to localStorage', err);
+      }
+
+      if (feedback) {
+        feedback.classList.remove('d-none');
+        feedback.className = 'sidebar-status-msg status-empty mt-3';
+        feedback.replaceChildren();
+
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-info-circle';
+        const span = document.createElement('span');
+        span.textContent = 'Account settings restored to defaults.';
+
+        feedback.appendChild(icon);
+        feedback.appendChild(span);
+      }
+    });
+  }
+}
+
+/**
+ * Dedicated Role View Handler & State Management
+ */
+function initRoleManagement() {
   const userRoleDescription = document.getElementById('userRoleDescription');
   const saveUserRoleBtn = document.getElementById('saveUserRoleBtn');
   const editUserRoleBtn = document.getElementById('editUserRoleBtn');
@@ -970,12 +1235,27 @@ function initAccountSettings() {
   const rolePointsList = document.getElementById('rolePointsList');
   const rolePointsStatus = document.getElementById('rolePointsStatus');
 
-  let isEditingDescription = false;
   let savedDescriptionTemp = '';
+
+  function saveRoleStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ROLE, JSON.stringify({
+        roleDescription: appState.account.roleDescription,
+        rolePoints: appState.account.rolePoints.map((p) => ({ id: p.id, text: p.text }))
+      }));
+    } catch (e) {
+      console.warn('Failed to save role to localStorage', e);
+    }
+  }
 
   // Initialize Role Description in UI
   if (userRoleDescription) {
     userRoleDescription.value = appState.account.roleDescription || '';
+    if (appState.account.roleDescription) {
+      userRoleDescription.disabled = true;
+      if (saveUserRoleBtn) saveUserRoleBtn.classList.add('d-none');
+      if (editUserRoleBtn) editUserRoleBtn.classList.remove('d-none');
+    }
   }
 
   // Save Role Description handler
@@ -1001,11 +1281,12 @@ function initAccountSettings() {
 
       appState.account.roleDescription = textVal;
       userRoleDescription.disabled = true;
-      isEditingDescription = false;
 
       if (saveUserRoleBtn) saveUserRoleBtn.classList.add('d-none');
       if (editUserRoleBtn) editUserRoleBtn.classList.remove('d-none');
       if (cancelUserRoleBtn) cancelUserRoleBtn.classList.add('d-none');
+
+      saveRoleStorage();
 
       if (userRoleFeedback) {
         userRoleFeedback.classList.remove('d-none');
@@ -1014,12 +1295,11 @@ function initAccountSettings() {
         const icon = document.createElement('i');
         icon.className = 'bi bi-check-circle-fill text-success';
         const span = document.createElement('span');
-        span.textContent = 'Role description saved for current session.';
+        span.textContent = 'Role description saved successfully.';
         userRoleFeedback.appendChild(icon);
         userRoleFeedback.appendChild(span);
       }
 
-      // Check for backend integration if endpoint exists
       if (API_CONFIG.ROLE_ENDPOINT) {
         try {
           const res = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ROLE_ENDPOINT}`, {
@@ -1036,6 +1316,7 @@ function initAccountSettings() {
                 isEditing: false
               }));
               renderRolePointsList();
+              saveRoleStorage();
             }
           }
         } catch (err) {
@@ -1049,7 +1330,6 @@ function initAccountSettings() {
   if (editUserRoleBtn && userRoleDescription) {
     editUserRoleBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      isEditingDescription = true;
       savedDescriptionTemp = appState.account.roleDescription;
       userRoleDescription.disabled = false;
       userRoleDescription.focus();
@@ -1065,7 +1345,6 @@ function initAccountSettings() {
   if (cancelUserRoleBtn && userRoleDescription) {
     cancelUserRoleBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      isEditingDescription = false;
       userRoleDescription.value = savedDescriptionTemp;
       userRoleDescription.disabled = true;
 
@@ -1116,15 +1395,18 @@ function initAccountSettings() {
       itemDiv.className = 'role-point-item';
 
       if (item.isEditing) {
-        // Edit Mode for individual point
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'd-flex align-items-center gap-2 flex-grow-1 me-2';
+        // Edit Mode for individual point with responsive wrapper
+        const editGroup = document.createElement('div');
+        editGroup.className = 'role-point-edit-group';
 
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'form-control form-control-sm';
         input.value = item.text;
         input.placeholder = 'Enter evaluation point or key criteria...';
+
+        const editButtons = document.createElement('div');
+        editButtons.className = 'role-point-edit-buttons';
 
         const saveBtn = document.createElement('button');
         saveBtn.type = 'button';
@@ -1145,10 +1427,10 @@ function initAccountSettings() {
           item.text = val;
           item.isEditing = false;
           renderRolePointsList();
+          saveRoleStorage();
         });
 
         cancelBtn.addEventListener('click', () => {
-          // If adding a new blank point and canceled, remove it
           if (!item.text) {
             appState.account.rolePoints.splice(index, 1);
           } else {
@@ -1157,19 +1439,22 @@ function initAccountSettings() {
           renderRolePointsList();
         });
 
-        inputGroup.appendChild(input);
-        inputGroup.appendChild(saveBtn);
-        inputGroup.appendChild(cancelBtn);
-        itemDiv.appendChild(inputGroup);
+        editGroup.appendChild(input);
+        editButtons.appendChild(saveBtn);
+        editButtons.appendChild(cancelBtn);
+        editGroup.appendChild(editButtons);
+        itemDiv.appendChild(editGroup);
+
+        setTimeout(() => input.focus(), 50);
 
       } else {
         // Normal Display Mode for individual point
         const span = document.createElement('span');
-        span.className = 'role-point-text me-3';
+        span.className = 'role-point-text';
         span.textContent = item.text;
 
         const btnGroup = document.createElement('div');
-        btnGroup.className = 'd-flex align-items-center gap-1 text-nowrap';
+        btnGroup.className = 'role-point-actions';
 
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
@@ -1190,6 +1475,7 @@ function initAccountSettings() {
           if (confirm('Are you sure you want to delete this focus point?')) {
             appState.account.rolePoints.splice(index, 1);
             renderRolePointsList();
+            saveRoleStorage();
           }
         });
 
@@ -1206,98 +1492,6 @@ function initAccountSettings() {
 
   // Initial render of points list
   renderRolePointsList();
-
-  // Existing Personal Information Form Submit handler
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      const nameInput = document.getElementById('settingDisplayName');
-      const emailInput = document.getElementById('settingEmail');
-      const roleInput = document.getElementById('settingRole');
-      const languageSelect = document.getElementById('settingLanguage');
-      const summaryLengthRadio = document.querySelector('input[name="summaryLength"]:checked');
-
-      if (nameInput) appState.account.displayName = nameInput.value.trim();
-      if (emailInput) appState.account.email = emailInput.value.trim();
-      if (roleInput) appState.account.role = roleInput.value.trim();
-      if (languageSelect) appState.account.language = languageSelect.value;
-      if (summaryLengthRadio) appState.account.summaryLength = summaryLengthRadio.value;
-
-      appState.account.insights.decisions = document.getElementById('insightDecisions')?.checked || false;
-      appState.account.insights.tasks = document.getElementById('insightTasks')?.checked || false;
-      appState.account.insights.risks = document.getElementById('insightRisks')?.checked || false;
-      appState.account.insights.suggestions = document.getElementById('insightSuggestions')?.checked || false;
-
-      if (feedback) {
-        feedback.classList.remove('d-none');
-        feedback.className = 'sidebar-status-msg status-empty mt-3';
-        feedback.replaceChildren();
-
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-check-circle-fill text-success';
-        const span = document.createElement('span');
-        span.textContent = 'Account settings saved for local session.';
-
-        feedback.appendChild(icon);
-        feedback.appendChild(span);
-      }
-    });
-  }
-
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      const nameInput = document.getElementById('settingDisplayName');
-      const emailInput = document.getElementById('settingEmail');
-      const roleInput = document.getElementById('settingRole');
-      const languageSelect = document.getElementById('settingLanguage');
-
-      if (nameInput) nameInput.value = 'Jane Doe';
-      if (emailInput) emailInput.value = 'jane.doe@example.com';
-      if (roleInput) roleInput.value = 'Product Manager';
-      if (languageSelect) languageSelect.value = 'en-US';
-
-      const balancedRadio = document.getElementById('summaryBalanced');
-      if (balancedRadio) balancedRadio.checked = true;
-
-      const insightDecisions = document.getElementById('insightDecisions');
-      const insightTasks = document.getElementById('insightTasks');
-      const insightRisks = document.getElementById('insightRisks');
-      const insightSuggestions = document.getElementById('insightSuggestions');
-
-      if (insightDecisions) insightDecisions.checked = true;
-      if (insightTasks) insightTasks.checked = true;
-      if (insightRisks) insightRisks.checked = false;
-      if (insightSuggestions) insightSuggestions.checked = true;
-
-      // Reset Your Role inputs
-      appState.account.roleDescription = '';
-      appState.account.rolePoints = [];
-      if (userRoleDescription) {
-        userRoleDescription.value = '';
-        userRoleDescription.disabled = false;
-      }
-      if (saveUserRoleBtn) saveUserRoleBtn.classList.remove('d-none');
-      if (editUserRoleBtn) editUserRoleBtn.classList.add('d-none');
-      if (cancelUserRoleBtn) cancelUserRoleBtn.classList.add('d-none');
-      if (userRoleFeedback) userRoleFeedback.classList.add('d-none');
-      renderRolePointsList();
-
-      if (feedback) {
-        feedback.classList.remove('d-none');
-        feedback.className = 'sidebar-status-msg status-empty mt-3';
-        feedback.replaceChildren();
-
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-info-circle';
-        const span = document.createElement('span');
-        span.textContent = 'Account settings restored to defaults for current session.';
-
-        feedback.appendChild(icon);
-        feedback.appendChild(span);
-      }
-    });
-  }
 }
 
 /**
@@ -1309,6 +1503,14 @@ function initCustomizationControls() {
   const resetSectionBBtn = document.getElementById('resetSectionBBtn');
   const resetAllBtn = document.getElementById('resetAllCustomizationBtn');
   const feedback = document.getElementById('customizationFeedback');
+
+  function saveCustomizationStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CUSTOMIZATION, JSON.stringify(appState.customization));
+    } catch (e) {
+      console.warn('Failed to save customization to localStorage', e);
+    }
+  }
 
   function renderPrioritiesControls() {
     const container = document.getElementById('prioritiesContainer');
@@ -1327,10 +1529,11 @@ function initCustomizationControls() {
       input.className = 'form-check-input';
       input.type = 'checkbox';
       input.id = `priority_${item.id}`;
-      input.checked = item.enabled;
+      input.checked = !!item.enabled;
 
       input.addEventListener('change', () => {
         item.enabled = input.checked;
+        saveCustomizationStorage();
       });
 
       const label = document.createElement('label');
@@ -1345,34 +1548,47 @@ function initCustomizationControls() {
     });
   }
 
-  // Render priority controls initially from priorities array of objects
-  renderPrioritiesControls();
+  function syncApproachControlsFromState() {
+    const approachKeys = ['clarifying', 'followup', 'disagree', 'negotiation', 'uncover_risks', 'evidence', 'objections', 'responses'];
+    approachKeys.forEach((key) => {
+      const el = document.getElementById(`approach_${key}`);
+      if (el) {
+        el.checked = !!appState.customization.approach[key];
+      }
+    });
+
+    const styleVal = appState.customization.responseStyle || 'diplomatic';
+    const styleRadio = document.querySelector(`input[name="responseStyle"][value="${styleVal}"]`);
+    if (styleRadio) {
+      styleRadio.checked = true;
+    }
+    updateResponseStyleSelection();
+  }
 
   function resetSectionA() {
     appState.customization.priorities.forEach((item) => {
       item.enabled = true;
     });
     renderPrioritiesControls();
+    saveCustomizationStorage();
   }
 
   function resetSectionB() {
     const defaultB = {
-      approach_clarifying: true,
-      approach_followup: true,
-      approach_disagree: false,
-      approach_negotiation: false,
-      approach_uncover_risks: false,
-      approach_evidence: false,
-      approach_objections: false,
-      approach_responses: true
+      clarifying: true,
+      followup: true,
+      disagree: false,
+      negotiation: false,
+      uncover_risks: false,
+      evidence: false,
+      objections: false,
+      responses: true
     };
-    Object.keys(defaultB).forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.checked = defaultB[id];
-    });
-    const diplomaticStyle = document.getElementById('styleDiplomatic');
-    if (diplomaticStyle) diplomaticStyle.checked = true;
-    updateResponseStyleSelection();
+    Object.assign(appState.customization.approach, defaultB);
+    appState.customization.responseStyle = 'diplomatic';
+
+    syncApproachControlsFromState();
+    saveCustomizationStorage();
   }
 
   function updateResponseStyleSelection() {
@@ -1387,13 +1603,32 @@ function initCustomizationControls() {
   }
 
   document.querySelectorAll('input[name="responseStyle"]').forEach((radio) => {
-    radio.addEventListener('change', updateResponseStyleSelection);
+    radio.addEventListener('change', () => {
+      updateResponseStyleSelection();
+      appState.customization.responseStyle = radio.value;
+      saveCustomizationStorage();
+    });
   });
+
+  // Render initial controls
+  renderPrioritiesControls();
+  syncApproachControlsFromState();
 
   if (resetSectionABtn) {
     resetSectionABtn.addEventListener('click', (e) => {
       e.preventDefault();
       resetSectionA();
+      if (feedback) {
+        feedback.classList.remove('d-none');
+        feedback.className = 'sidebar-status-msg status-empty mt-3';
+        feedback.replaceChildren();
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-info-circle';
+        const span = document.createElement('span');
+        span.textContent = 'Priorities restored to default values.';
+        feedback.appendChild(icon);
+        feedback.appendChild(span);
+      }
     });
   }
 
@@ -1401,6 +1636,17 @@ function initCustomizationControls() {
     resetSectionBBtn.addEventListener('click', (e) => {
       e.preventDefault();
       resetSectionB();
+      if (feedback) {
+        feedback.classList.remove('d-none');
+        feedback.className = 'sidebar-status-msg status-empty mt-3';
+        feedback.replaceChildren();
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-info-circle';
+        const span = document.createElement('span');
+        span.textContent = 'Conversation approach restored to default values.';
+        feedback.appendChild(icon);
+        feedback.appendChild(span);
+      }
     });
   }
 
@@ -1445,6 +1691,8 @@ function initCustomizationControls() {
       const styleRadio = document.querySelector('input[name="responseStyle"]:checked');
       if (styleRadio) appState.customization.responseStyle = styleRadio.value;
 
+      saveCustomizationStorage();
+
       if (feedback) {
         feedback.classList.remove('d-none');
         feedback.className = 'sidebar-status-msg status-empty mt-3';
@@ -1453,7 +1701,7 @@ function initCustomizationControls() {
         const icon = document.createElement('i');
         icon.className = 'bi bi-check-circle-fill text-success';
         const span = document.createElement('span');
-        span.textContent = 'Customization priorities and conversation approach updated for local session.';
+        span.textContent = 'Customization priorities and conversation approach saved.';
 
         feedback.appendChild(icon);
         feedback.appendChild(span);
