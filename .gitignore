@@ -1,0 +1,31 @@
+# python caches and irrelevant files
+__pycache__/
+*.pyc
+*.tmp
+
+# ignore configuration files
+config/.env.*
+!config/.env.example
+
+# ignore other relevant local files
+# local work directory
+tmp/
+*.temp
+
+# VS Code configuration files
+.vscode/
+.agents/
+.claude/
+.gemini/
+.ollama/
+.config/
+
+# other application data files
+data/
+
+# logs
+logs/
+*.log
+
+# poetry lock files
+poetry.lock
