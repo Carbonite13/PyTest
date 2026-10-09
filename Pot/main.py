@@ -5,8 +5,9 @@ from asyncio.exceptions import CancelledError
 import logging
 import sys
 
+from pathlib import Path
 from typing import Optional
-from .config import settings
+from .config import settings, Settings
 from Pot.core.log import module_log
 
 from Pot.api.v1.routes.debug import debugRouter
@@ -37,8 +38,16 @@ def create_app(config: Settings) -> FastAPI:
     logger.info("Including WebRTC signaling router")
     app.include_router(signalingRouter, prefix="/rtc")
     
+    # UI Pages router
+    from Pot.api.v1.routes.pages import pagesRouter
+    logger.info("Including UI Pages router")
+    app.include_router(pagesRouter)
+
     # configure Static paths
-    # TODO
+    tea_dir = Path(config.app_root) / "Tea"
+    if tea_dir.exists():
+        logger.info(f"Mounting static files from {tea_dir}")
+        app.mount("/static", StaticFiles(directory=str(tea_dir)), name="static")
 
     return app
 
