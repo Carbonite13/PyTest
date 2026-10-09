@@ -4,7 +4,7 @@
 
 import json
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import JSONResponse
 
 from Pot.config import settings
@@ -27,6 +27,9 @@ signalingRouter = APIRouter(
 
 
 # REST endpoints    
+from fastapi.responses import JSONResponse, StreamingResponse
+from Pot.core.audio_pipeline import audio_pipeline
+
 @signalingRouter.get("/ice-servers")
 async def get_ice_servers():
     """Return the ICE server configuration the client should use"""
@@ -69,6 +72,40 @@ async def get_room(room_id: str):
         peers=[p.info() for p in room.peers.values()],
         ice_servers=[ICEServerConfig(urls=[settings.stun_server])],
     ).model_dump()
+
+
+# Audio Capture & Streaming Endpoints
+
+@signalingRouter.post("/rooms/{room_id}/peers/{peer_id}/audio")
+async def ingest_audio_stream(room_id: str, peer_id: str, request: Request):
+    """
+    Ingest audio stream chunk from client, buffer it, and transcribe internally.
+    """
+    body = await request.body()
+    if not body:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Empty audio payload"})
+
+    transcript = audio_pipeline.receive_audio_chunk(room_id, peer_id, body)
+    return {
+        "status": "success",
+        "room_id": room_id,
+        "peer_id": peer_id,
+        "bytes_received": len(body),
+        "transcript": transcript,
+    }
+
+
+@signalingRouter.get("/rooms/{room_id}/audio-stream")
+async def stream_transcribed_audio_out(room_id: str):
+    """
+    Stream captured audio & transcription events out of backend to external API/consumers via Server-Sent Events (SSE).
+    """
+    async def event_generator():
+        async for event in audio_pipeline.subscribe_stream(room_id):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    logger.info(f"External API subscribed to audio stream for room '{room_id}'")
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # WebSocket signaling endpoint 

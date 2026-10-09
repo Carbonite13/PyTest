@@ -13,6 +13,8 @@ from Pot.core.log import module_log
 from Pot.api.v1.routes.debug import debugRouter
 from Pot.api.v1.routes.signaling import signalingRouter
 
+from fastapi.middleware.cors import CORSMiddleware
+
 logger = module_log(__name__)
 
 def create_app(config: Settings) -> FastAPI:
@@ -27,6 +29,15 @@ def create_app(config: Settings) -> FastAPI:
         debug=True if config.profile.lower() == "dev" else False
     )
     app.config = config
+
+    # Enable CORS for external frontend & mobile clients
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # include the debug router and expose its endpoints
     # if the application is in development profile
