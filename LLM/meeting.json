@@ -1,7 +1,24 @@
 {
-  "meeting_title": "Untitled Meeting",
+  "meeting_id": "b0db41cf-e978-43a6-b66d-33be18b13de8",
+  "meeting_title": "Jane Doe's Meeting",
   "meeting_status": "in_progress",
-  "started_at": "2026-10-09T10:57:46.942Z",
-  "last_updated": "2026-10-09T10:57:46.944Z",
-  "topics": []
+  "started_at": "2026-10-09T17:08:17.751Z",
+  "last_updated": "2026-10-09T17:08:18.985Z",
+  "topics": [
+    {
+      "topic_id": 1,
+      "topic_name": "Q4 Review",
+      "nature": "discussion",
+      "status": "completed",
+      "start_time": "10:00",
+      "end_time": "10:15",
+      "summary_points": [
+        "Good quarter"
+      ],
+      "action_items": [
+        "Celebrate"
+      ],
+      "branched_from": null
+    }
+  ]
 }
