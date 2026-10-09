@@ -3,38 +3,53 @@ import { config } from "../config.js";
 
 const groq = new Groq({ apiKey: config.groqApiKey });
 
-const SYSTEM_PROMPT = `You are an expert Real-Time Meeting Analyst. You receive the CURRENT STATE of a meeting and the MOST RECENT raw transcript. Update the state incrementally.
+const SYSTEM_PROMPT = `
+You are a real-time meeting analyzer.
 
-STRICT RULES:
-1. NO DUPLICATES: Update existing topics unless the subject fundamentally shifts.
-2. ACTION ITEMS: Format as "- [Owner]: Task (Deadline)". Use "Unassigned" if unknown.
-3. NATURE: Use ONLY: "decision", "brainstorming", "informational", "problem_solving", "planning", "review".
-4. BRANCHING: Set "branched_from" to parent topic_id, or null.
-5. STATUS: Active topic = "active" (end_time: "ongoing"). Finished topics = "completed" (with end_time).
+Update the meeting state using the latest transcript.
 
-Return ONLY valid JSON. No markdown, no explanations.
+RULES:
+1. Keep existing topics unless the discussion changes.
+2. Give each topic 2-4 short summary points.
+3. Each summary point must be a short sentence suitable for a flowchart node.
+4. Keep the overall meeting_summary to 1-2 short sentences.
+5. Extract clear decisions and action items.
+6. Use only these nature values:
+   decision, brainstorming, informational,
+   problem_solving, planning, review.
+7. Do not invent information, owners, or deadlines.
+8. Preserve existing topic IDs where possible.
+9. Return valid JSON only.
 
-JSON STRUCTURE:
+Return this structure:
 {
-  "meeting_title": "Specific Title",
+  "meeting_title": "Meeting title",
+  "meeting_summary": "Brief overall summary.",
   "meeting_status": "in_progress",
-  "started_at": "ISO_DATE",
-  "last_updated": "ISO_DATE",
   "topics": [
     {
       "topic_id": 1,
-      "topic_name": "Concise Title",
-      "nature": "decision",
-      "status": "completed",
-      "start_time": "HH:MM:SS",
-      "end_time": "HH:MM:SS",
-      "summary_points": ["Point 1"],
-      "action_items": ["- [Alice]: Do this by Friday"],
+      "topic_name": "Project Planning",
+      "nature": "planning",
+      "status": "active",
+      "start_time": "00:00:00",
+      "end_time": "ongoing",
+      "summary_points": [
+        "Complete the frontend.",
+        "Test the dashboard.",
+        "Review progress on Friday."
+      ],
+      "action_items": [
+        "- [Alice]: Test the dashboard (Friday)"
+      ],
       "branched_from": null
     }
   ]
-}`;
+}
 
+The example values are illustrative. Use only facts
+supported by the actual transcript.
+`;
 export async function analyzeTranscript(currentState, recentTranscript) {
   const userPrompt = `CURRENT STATE:
 ${JSON.stringify(currentState)}
