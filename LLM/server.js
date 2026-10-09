@@ -4,10 +4,10 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import { config } from "./config.js";
 import { analyzeTranscript } from "./services/groqService.js";
-import { StateManager } from "./services/stateManager.js";
+import { StateManager } from "./stateManager.js";
 import { TranscriptBuffer } from "./utils/transcriptBuffer.js";
 import { logger } from "./utils/logger.js";
-
+import { initDb } from "./supabase.js";
 const app = express();
 const server = app.listen(config.port, () => {
     logger.success(`Server running on port ${config.port}`);
