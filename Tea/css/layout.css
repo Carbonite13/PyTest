@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Layout & Grid Structure (Editorial Workspace)
+   Layout & Grid Structure (Teapot Multi-Theme Workspace)
    ========================================================================== */
 
 /* Main App Container */
@@ -9,7 +9,7 @@
   width: 100%;
 }
 
-/* Sidebar Layout - Visually Distinct & Tactile */
+/* Sidebar Layout */
 .app-sidebar {
   width: var(--sidebar-width);
   background-color: var(--bg-sidebar);
@@ -21,7 +21,7 @@
   bottom: 0;
   left: 0;
   z-index: 1030;
-  transition: transform var(--transition-normal);
+  transition: transform var(--transition-normal), background-color var(--transition-normal);
 }
 
 .sidebar-header {
@@ -48,23 +48,84 @@
   transition: margin-left var(--transition-normal);
 }
 
-/* Header Navbar - Matches Deep Burgundy Sidebar */
+/* Header Navbar */
 .app-header {
   height: var(--header-height);
   background-color: var(--bg-sidebar);
   border-bottom: 1px solid var(--border-sidebar);
-  padding: 0 2rem;
+  padding: 0 1.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 1020;
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
+}
+
+/* Header Search Container */
+.header-search-container {
+  max-width: 320px;
+  width: 100%;
+  position: relative;
+}
+
+.header-search-input {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  padding: 0.45rem 1rem 0.45rem 2.4rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.header-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.header-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+/* Header Action Buttons (Theme Toggle Button) */
+.header-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+  font-size: 1.05rem;
+}
+
+.header-icon-btn:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-hover);
+  border-color: var(--color-primary);
+  transform: scale(1.06);
+  box-shadow: 0 0 10px var(--color-primary-light);
 }
 
 /* Main Content Body Container */
 .dashboard-content {
-  padding: 2.5rem 2.25rem;
+  padding: 2.25rem 2rem;
   max-width: 1240px;
   width: 100%;
   margin: 0 auto;
@@ -73,13 +134,15 @@
 /* Hero Section Layout */
 .hero-section {
   background-color: var(--bg-surface);
+  background-image: radial-gradient(circle at 90% 10%, var(--color-primary-light) 0%, transparent 60%);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 2.75rem 2.25rem;
-  margin-bottom: 2.5rem;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 2.25rem;
+  box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
 .hero-section::before {
@@ -89,9 +152,27 @@
   left: 0;
   width: 4px;
   height: 100%;
-  background-color: var(--color-primary);
+  background: var(--gradient-primary);
   border-top-left-radius: var(--radius-lg);
   border-bottom-left-radius: var(--radius-lg);
+}
+
+/* Jump into Conversation Text Link on Dashboard */
+.jump-conversation-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-primary);
+  transition: all var(--transition-fast);
+  padding: 0.25rem 0;
+  text-decoration: none;
+}
+
+.jump-conversation-link:hover {
+  color: var(--color-primary-hover);
+  transform: translateX(4px);
 }
 
 /* Responsive Behavior */
@@ -115,5 +196,9 @@
 
   .hero-section {
     padding: 2rem 1.5rem;
+  }
+
+  .header-search-container {
+    max-width: 200px;
   }
 }

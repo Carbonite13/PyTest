@@ -1,12 +1,13 @@
 /**
- * Main Application Module (Editorial Workspace)
- * Handles client-side UI interactions, view navigation, settings state management, and AJAX conversation history fetching.
+ * Main Application Module (Teapot Workspace System)
+ * Handles UI interactions, view navigation, multi-theme switching, and conversation history.
  */
 
 import { API_CONFIG, UI_MESSAGES } from './modules/constants.js';
 
 // Local session state container for frontend prototype demonstration
 const appState = {
+  theme: 'crimson-eclipse',
   account: {
     displayName: 'Jane Doe',
     email: 'jane.doe@example.com',
@@ -46,6 +47,7 @@ const appState = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  initThemeManager();
   initSidebarToggle();
   initViewNavigation();
   initMeetingControls();
@@ -53,6 +55,100 @@ document.addEventListener('DOMContentLoaded', () => {
   initCustomizationControls();
   fetchConversationsHistory();
 });
+
+/**
+ * Multi-Theme Management System
+ * Supports 7 Dark Gradient Themes in Settings + Light Theme + Top-Bar Toggle Alternating
+ */
+function initThemeManager() {
+  const THEME_STORAGE_KEY = 'teapot_theme_key';
+  const THEMES = [
+    { id: 'crimson-eclipse', name: 'Crimson Eclipse' },
+    { id: 'light-theme', name: 'Light Theme' },
+    { id: 'emerald-afterdark', name: 'Emerald Afterdark' },
+    { id: 'cobalt-night', name: 'Cobalt Night' },
+    { id: 'amethyst-smoke', name: 'Amethyst Smoke' },
+    { id: 'copper-ember', name: 'Copper Ember' },
+    { id: 'arctic-teal', name: 'Arctic Teal' },
+    { id: 'golden-dusk', name: 'Golden Dusk' }
+  ];
+
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+  function applyTheme(themeId) {
+    const themeObj = THEMES.find((t) => t.id === themeId) || THEMES[0];
+    const targetTheme = themeObj.id;
+    appState.theme = targetTheme;
+
+    document.documentElement.setAttribute('data-theme', targetTheme);
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, targetTheme);
+    } catch (err) {
+      console.warn('Unable to persist theme to localStorage:', err);
+    }
+
+    // Update active UI card in theme selector grid
+    document.querySelectorAll('.theme-card').forEach((card) => {
+      const cardThemeId = card.getAttribute('data-theme-id');
+      if (cardThemeId === targetTheme) {
+        card.classList.add('active');
+      } else {
+        card.classList.remove('active');
+      }
+    });
+
+    // Update header quick theme toggle button tooltip
+    if (themeToggleBtn) {
+      const targetLabel = (targetTheme === 'light-theme') ? 'Crimson Eclipse' : 'Light Theme';
+      themeToggleBtn.setAttribute('title', `Current theme: ${themeObj.name} (Click to switch to ${targetLabel})`);
+    }
+  }
+
+  /**
+   * Top-Bar Toggle Handler:
+   * Alternates strictly between Crimson Eclipse and Light Theme.
+   * If any alternative gradient theme is active, switches to Crimson Eclipse.
+   */
+  function handleTopBarToggle() {
+    if (appState.theme === 'light-theme') {
+      applyTheme('crimson-eclipse');
+    } else if (appState.theme === 'crimson-eclipse') {
+      applyTheme('light-theme');
+    } else {
+      // If currently on any alternative gradient theme (Emerald, Cobalt, etc.)
+      applyTheme('crimson-eclipse');
+    }
+  }
+
+  // Load initial theme from localStorage or default
+  let savedTheme = 'crimson-eclipse';
+  try {
+    savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'crimson-eclipse';
+  } catch (err) {
+    savedTheme = 'crimson-eclipse';
+  }
+
+  applyTheme(savedTheme);
+
+  // Attach click listener for header quick theme toggle button
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleTopBarToggle();
+    });
+  }
+
+  // Attach click listeners to theme selection cards in Account Settings grid
+  document.querySelectorAll('.theme-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const themeId = card.getAttribute('data-theme-id');
+      if (themeId) {
+        applyTheme(themeId);
+      }
+    });
+  });
+}
 
 /**
  * Mobile Sidebar Toggle Handler
@@ -80,19 +176,22 @@ function initSidebarToggle() {
 }
 
 /**
- * Single-Page View Navigation (Home, Start Meeting, Account Settings, Customization)
+ * Single-Page View Navigation (Home, Jump into Conversation, Around the Globe, Account Settings, Customization)
  */
 function initViewNavigation() {
   const views = {
     home: document.getElementById('homeView'),
     startMeeting: document.getElementById('startMeetingView'),
+    aroundGlobe: document.getElementById('aroundGlobeView'),
     accountSettings: document.getElementById('accountSettingsView'),
     customization: document.getElementById('customizationView')
   };
 
   const navHomeLink = document.getElementById('navHomeLink');
-  const startMeetingBtn = document.getElementById('startMeetingBtn');
+  const navJumpLink = document.getElementById('navJumpLink');
+  const jumpConversationLink = document.getElementById('jumpConversationLink');
   const backToHomeBtn = document.getElementById('backToHomeBtn');
+  const aroundGlobeBackBtn = document.getElementById('aroundGlobeBackBtn');
   const accountBackBtn = document.getElementById('accountBackBtn');
   const customizationBackBtn = document.getElementById('customizationBackBtn');
   const goToCustomizationBtn = document.getElementById('goToCustomizationBtn');
@@ -112,11 +211,16 @@ function initViewNavigation() {
       }
     });
 
-    if (navHomeLink) {
+    if (navHomeLink && navJumpLink) {
       if (targetKey === 'home') {
         navHomeLink.classList.add('active');
+        navJumpLink.classList.remove('active');
+      } else if (targetKey === 'startMeeting' || targetKey === 'aroundGlobe') {
+        navHomeLink.classList.remove('active');
+        navJumpLink.classList.add('active');
       } else {
         navHomeLink.classList.remove('active');
+        navJumpLink.classList.remove('active');
       }
     }
 
@@ -127,10 +231,17 @@ function initViewNavigation() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  if (startMeetingBtn) {
-    startMeetingBtn.addEventListener('click', (e) => {
+  if (jumpConversationLink) {
+    jumpConversationLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('startMeeting', 'Start Meeting');
+      switchView('startMeeting', 'Jump into the Conversation');
+    });
+  }
+
+  if (navJumpLink) {
+    navJumpLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('startMeeting', 'Jump into the Conversation');
     });
   }
 
@@ -145,6 +256,13 @@ function initViewNavigation() {
     backToHomeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       switchView('home', 'Home');
+    });
+  }
+
+  if (aroundGlobeBackBtn) {
+    aroundGlobeBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('startMeeting', 'Jump into the Conversation');
     });
   }
 
@@ -182,48 +300,69 @@ function initViewNavigation() {
       switchView('customization', 'Customization');
     });
   }
+
+  window.__teapotSwitchView = switchView;
 }
 
 /**
- * Controls & Validation for Start Meeting Page
+ * Controls for Jump into Conversation & Around the Globe Views
  */
 function initMeetingControls() {
-  const createMeetingBtn = document.getElementById('createMeetingBtn');
-  const createMeetingFeedback = document.getElementById('createMeetingFeedback');
+  const aroundGlobeCard = document.getElementById('aroundGlobeCard');
+  const aroundTableCard = document.getElementById('aroundTableCard');
+  const jumpOptionFeedback = document.getElementById('jumpOptionFeedback');
 
-  const joinMeetingForm = document.getElementById('joinMeetingForm');
-  const meetingCodeInput = document.getElementById('meetingCodeInput');
-  const joinMeetingFeedback = document.getElementById('joinMeetingFeedback');
+  const aroundGlobeForm = document.getElementById('aroundGlobeForm');
+  const globeCodeInput = document.getElementById('globeCodeInput');
+  const globeFeedback = document.getElementById('globeFeedback');
 
-  if (createMeetingBtn && createMeetingFeedback) {
-    createMeetingBtn.addEventListener('click', () => {
-      createMeetingFeedback.classList.remove('d-none');
+  if (aroundGlobeCard) {
+    aroundGlobeCard.addEventListener('click', () => {
+      if (window.__teapotSwitchView) {
+        window.__teapotSwitchView('aroundGlobe', 'Around the Globe');
+      }
     });
   }
 
-  if (joinMeetingForm && meetingCodeInput && joinMeetingFeedback) {
-    joinMeetingForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const codeValue = meetingCodeInput.value.trim();
+  if (aroundTableCard && jumpOptionFeedback) {
+    aroundTableCard.addEventListener('click', () => {
+      jumpOptionFeedback.classList.remove('d-none');
+      jumpOptionFeedback.className = 'sidebar-status-msg status-empty mt-4';
+      jumpOptionFeedback.replaceChildren();
 
-      joinMeetingFeedback.classList.remove('d-none');
-      joinMeetingFeedback.replaceChildren();
+      const icon = document.createElement('i');
+      icon.className = 'bi bi-info-circle';
+      const span = document.createElement('span');
+      span.textContent = '"Around the Table" conversation session will connect when backend service is online.';
+
+      jumpOptionFeedback.appendChild(icon);
+      jumpOptionFeedback.appendChild(span);
+    });
+  }
+
+  if (aroundGlobeForm && globeCodeInput && globeFeedback) {
+    aroundGlobeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const codeValue = globeCodeInput.value.trim();
+
+      globeFeedback.classList.remove('d-none');
+      globeFeedback.replaceChildren();
 
       const icon = document.createElement('i');
       const span = document.createElement('span');
 
       if (!codeValue) {
-        joinMeetingFeedback.className = 'sidebar-status-msg status-error mt-3';
+        globeFeedback.className = 'sidebar-status-msg status-error mt-3';
         icon.className = 'bi bi-exclamation-triangle-fill';
-        span.textContent = 'Please enter a meeting code or link before joining.';
+        span.textContent = 'Please enter a conversation code or link before joining.';
       } else {
-        joinMeetingFeedback.className = 'sidebar-status-msg status-empty mt-3';
+        globeFeedback.className = 'sidebar-status-msg status-empty mt-3';
         icon.className = 'bi bi-info-circle';
-        span.textContent = 'Joining will be available once the meeting service is connected.';
+        span.textContent = 'Joining global conversation will be available once backend service is online.';
       }
 
-      joinMeetingFeedback.appendChild(icon);
-      joinMeetingFeedback.appendChild(span);
+      globeFeedback.appendChild(icon);
+      globeFeedback.appendChild(span);
     });
   }
 }
@@ -265,7 +404,7 @@ function initAccountSettings() {
         const icon = document.createElement('i');
         icon.className = 'bi bi-check-circle-fill text-success';
         const span = document.createElement('span');
-        span.textContent = 'Account settings saved for local session. Cloud sync will connect when backend service is online.';
+        span.textContent = 'Account settings saved for local session.';
 
         feedback.appendChild(icon);
         feedback.appendChild(span);
@@ -359,7 +498,23 @@ function initCustomizationControls() {
     });
     const diplomaticStyle = document.getElementById('styleDiplomatic');
     if (diplomaticStyle) diplomaticStyle.checked = true;
+    updateResponseStyleSelection();
   }
+
+  function updateResponseStyleSelection() {
+    document.querySelectorAll('.response-style-pill').forEach((pill) => {
+      const radio = pill.querySelector('input[type="radio"]');
+      if (radio && radio.checked) {
+        pill.classList.add('selected');
+      } else {
+        pill.classList.remove('selected');
+      }
+    });
+  }
+
+  document.querySelectorAll('input[name="responseStyle"]').forEach((radio) => {
+    radio.addEventListener('change', updateResponseStyleSelection);
+  });
 
   if (resetSectionABtn) {
     resetSectionABtn.addEventListener('click', (e) => {
@@ -455,9 +610,22 @@ async function fetchConversationsHistory() {
 
     const data = await response.json();
 
-    const conversations = Array.isArray(data) 
-      ? data 
-      : (data && Array.isArray(data.conversations) ? data.conversations : []);
+    let conversations = null;
+    if (Array.isArray(data)) {
+      conversations = data;
+    } else if (data && typeof data === 'object') {
+      if (Array.isArray(data.conversations)) {
+        conversations = data.conversations;
+      } else if (Array.isArray(data.data)) {
+        conversations = data.data;
+      } else if (Array.isArray(data.items)) {
+        conversations = data.items;
+      }
+    }
+
+    if (conversations === null) {
+      throw new Error('Invalid conversation payload structure');
+    }
 
     if (conversations.length === 0) {
       renderStatusMessage(container, UI_MESSAGES.EMPTY_HISTORY, 'status-empty');
@@ -473,9 +641,6 @@ async function fetchConversationsHistory() {
 
 /**
  * Renders status messages in the sidebar
- * @param {HTMLElement} container 
- * @param {string} text 
- * @param {string} statusClass 
  */
 function renderStatusMessage(container, text, statusClass) {
   container.replaceChildren();
@@ -504,8 +669,6 @@ function renderStatusMessage(container, text, statusClass) {
 
 /**
  * Renders conversation items safely into the sidebar
- * @param {HTMLElement} container 
- * @param {Array} conversations 
  */
 function renderConversationsList(container, conversations) {
   container.replaceChildren();
@@ -532,6 +695,3 @@ function renderConversationsList(container, conversations) {
     container.appendChild(li);
   });
 }
-
-
-
