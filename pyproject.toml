@@ -14,3 +14,19 @@ dependencies = [
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+server = [
+    "uvicorn (>=0.54.0,<0.55.0)",
+    "fastapi (>=0.143.0,<0.144.0)",
+    "pydantic (>=2.14.0,<3.0.0)",
+    "requests (>=2.34.2,<3.0.0)",
+    "websockets (>=17.2,<18.0)",
+    "uvicorn[standard] (>=0.54.0,<0.55.0)"
+]
+test = [
+    "pytest (>=9.1.1,<10.0.0)"
+]
+db = [
+    "sqlalchemy (>=2.1.4,<3.0.0)"
+]

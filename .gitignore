@@ -6,6 +6,7 @@ __pycache__/
 # ignore configuration files
 config/.env.*
 !config/.env.example
+.env
 
 # ignore other relevant local files
 # local work directory
