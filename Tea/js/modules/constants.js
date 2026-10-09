@@ -5,8 +5,8 @@
 
 // API Configuration Constants
 export const API_CONFIG = {
-  // Base URL for API requests (empty string for relative endpoint routing)
-  BASE_URL: '',
+  // Base URL for API requests
+  BASE_URL: 'http://10.80.0.22:9030',
   // Endpoint for retrieving past conversation history
   CONVERSATIONS_ENDPOINT: '/api/conversations',
   // Default request headers

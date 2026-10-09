@@ -4,6 +4,9 @@
  */
 
 import { API_CONFIG, UI_MESSAGES } from './modules/constants.js';
+import { WebRTCClient } from './modules/webrtcClient.js';
+
+let rtcClient = null;
 
 // Local session state container for frontend prototype demonstration
 const appState = {
@@ -305,7 +308,7 @@ function initViewNavigation() {
 }
 
 /**
- * Controls for Jump into Conversation & Around the Globe Views
+ * Controls for Jump into Conversation & Around the Globe (WebRTC Video Conferencing)
  */
 function initMeetingControls() {
   const aroundGlobeCard = document.getElementById('aroundGlobeCard');
@@ -315,6 +318,20 @@ function initMeetingControls() {
   const aroundGlobeForm = document.getElementById('aroundGlobeForm');
   const globeCodeInput = document.getElementById('globeCodeInput');
   const globeFeedback = document.getElementById('globeFeedback');
+
+  const webrtcJoinCard = document.getElementById('webrtcJoinCard');
+  const videoConferenceInterface = document.getElementById('videoConferenceInterface');
+  const conferenceRoomTitle = document.getElementById('conferenceRoomTitle');
+  const webrtcStatusLabel = document.getElementById('webrtcStatusLabel');
+  const webrtcPeerCountBadge = document.getElementById('webrtcPeerCountBadge');
+  const videoGridContainer = document.getElementById('videoGridContainer');
+  const localVideo = document.getElementById('localVideo');
+
+  const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+  const audioBtnIcon = document.getElementById('audioBtnIcon');
+  const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+  const videoBtnIcon = document.getElementById('videoBtnIcon');
+  const leaveCallBtn = document.getElementById('leaveCallBtn');
 
   if (aroundGlobeCard) {
     aroundGlobeCard.addEventListener('click', () => {
@@ -333,37 +350,170 @@ function initMeetingControls() {
       const icon = document.createElement('i');
       icon.className = 'bi bi-info-circle';
       const span = document.createElement('span');
-      span.textContent = '"Around the Table" conversation session will connect when backend service is online.';
+      span.textContent = '"Around the Table" local multi-peer session ready.';
 
       jumpOptionFeedback.appendChild(icon);
       jumpOptionFeedback.appendChild(span);
     });
   }
 
-  if (aroundGlobeForm && globeCodeInput && globeFeedback) {
-    aroundGlobeForm.addEventListener('submit', (e) => {
+  if (aroundGlobeForm && globeCodeInput) {
+    aroundGlobeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const codeValue = globeCodeInput.value.trim();
+      const roomId = globeCodeInput.value.trim();
 
-      globeFeedback.classList.remove('d-none');
-      globeFeedback.replaceChildren();
-
-      const icon = document.createElement('i');
-      const span = document.createElement('span');
-
-      if (!codeValue) {
-        globeFeedback.className = 'sidebar-status-msg status-error mt-3';
-        icon.className = 'bi bi-exclamation-triangle-fill';
-        span.textContent = 'Please enter a conversation code or link before joining.';
-      } else {
-        globeFeedback.className = 'sidebar-status-msg status-empty mt-3';
-        icon.className = 'bi bi-info-circle';
-        span.textContent = 'Joining global conversation will be available once backend service is online.';
+      if (!roomId) {
+        if (globeFeedback) {
+          globeFeedback.classList.remove('d-none');
+          globeFeedback.className = 'sidebar-status-msg status-error mt-3';
+          globeFeedback.replaceChildren();
+          const icon = document.createElement('i');
+          icon.className = 'bi bi-exclamation-triangle-fill';
+          const span = document.createElement('span');
+          span.textContent = 'Please enter a valid room ID or code.';
+          globeFeedback.appendChild(icon);
+          globeFeedback.appendChild(span);
+        }
+        return;
       }
 
-      globeFeedback.appendChild(icon);
-      globeFeedback.appendChild(span);
+      try {
+        if (globeFeedback) {
+          globeFeedback.classList.remove('d-none');
+          globeFeedback.className = 'sidebar-status-msg status-empty mt-3';
+          globeFeedback.textContent = 'Acquiring camera & connecting to WebRTC...';
+        }
+
+        // Initialize WebRTC client
+        rtcClient = new WebRTCClient({
+          baseUrl: API_CONFIG.BASE_URL,
+          onStatusChange: (statusText) => {
+            if (webrtcStatusLabel) webrtcStatusLabel.textContent = `Status: ${statusText}`;
+          },
+          onPeerJoined: (peerId) => {
+            console.log('Peer joined UI handler:', peerId);
+            updatePeerCountBadge();
+          },
+          onPeerLeft: (peerId) => {
+            console.log('Peer left UI handler:', peerId);
+            removeRemoteVideoTile(peerId);
+            updatePeerCountBadge();
+          },
+          onRemoteTrack: (peerId, stream) => {
+            console.log('Remote track UI handler:', peerId);
+            addOrUpdateRemoteVideoTile(peerId, stream);
+          },
+          onError: (errMsg) => {
+            alert(`WebRTC Error: ${errMsg}`);
+          }
+        });
+
+        // 1. Acquire local camera stream
+        const stream = await rtcClient.startLocalStream({ audio: true, video: true });
+        if (localVideo) {
+          localVideo.srcObject = stream;
+        }
+
+        // 2. Connect signaling WebSocket & join room
+        await rtcClient.connectSignaling();
+        rtcClient.joinRoom(roomId);
+
+        // Update UI View State
+        if (webrtcJoinCard) webrtcJoinCard.classList.add('d-none');
+        if (videoConferenceInterface) videoConferenceInterface.classList.remove('d-none');
+        if (conferenceRoomTitle) conferenceRoomTitle.textContent = `Room: ${roomId}`;
+        updatePeerCountBadge();
+
+      } catch (err) {
+        console.error('Failed to start WebRTC session:', err);
+        if (globeFeedback) {
+          globeFeedback.className = 'sidebar-status-msg status-error mt-3';
+          globeFeedback.textContent = `Connection failed: ${err.message}`;
+        }
+      }
     });
+  }
+
+  // Audio Toggle Button
+  if (toggleAudioBtn) {
+    toggleAudioBtn.addEventListener('click', () => {
+      if (!rtcClient) return;
+      const isMuted = rtcClient.toggleAudio();
+      if (isMuted) {
+        toggleAudioBtn.classList.replace('btn-outline-light', 'btn-warning');
+        if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-mute-fill fs-5';
+      } else {
+        toggleAudioBtn.classList.replace('btn-warning', 'btn-outline-light');
+        if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-fill fs-5';
+      }
+    });
+  }
+
+  // Video Toggle Button
+  if (toggleVideoBtn) {
+    toggleVideoBtn.addEventListener('click', () => {
+      if (!rtcClient) return;
+      const isMuted = rtcClient.toggleVideo();
+      if (isMuted) {
+        toggleVideoBtn.classList.replace('btn-outline-light', 'btn-warning');
+        if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-off-fill fs-5';
+      } else {
+        toggleVideoBtn.classList.replace('btn-warning', 'btn-outline-light');
+        if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-fill fs-5';
+      }
+    });
+  }
+
+  // Leave Call Button
+  if (leaveCallBtn) {
+    leaveCallBtn.addEventListener('click', () => {
+      if (rtcClient) {
+        rtcClient.leaveRoom();
+        rtcClient.disconnect();
+        rtcClient = null;
+      }
+      // Reset UI elements
+      if (videoConferenceInterface) videoConferenceInterface.classList.add('d-none');
+      if (webrtcJoinCard) webrtcJoinCard.classList.remove('d-none');
+      if (localVideo) localVideo.srcObject = null;
+      // Remove remote videos
+      document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
+    });
+  }
+
+  function addOrUpdateRemoteVideoTile(peerId, stream) {
+    let tile = document.getElementById(`remote-tile-${peerId}`);
+    if (!tile && videoGridContainer) {
+      tile = document.createElement('div');
+      tile.className = 'col-12 col-md-6 remote-video-tile';
+      tile.id = `remote-tile-${peerId}`;
+
+      tile.innerHTML = `
+        <div class="video-stream-box position-relative rounded overflow-hidden bg-dark" style="aspect-ratio: 16/9;">
+          <video id="video-peer-${peerId}" autoplay playsinline class="w-100 h-100 object-fit-cover"></video>
+          <div class="position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white rounded small">
+            <i class="bi bi-person me-1"></i> Peer (${peerId.slice(0, 6)}...)
+          </div>
+        </div>
+      `;
+      videoGridContainer.appendChild(tile);
+    }
+
+    const videoElem = document.getElementById(`video-peer-${peerId}`);
+    if (videoElem) {
+      videoElem.srcObject = stream;
+    }
+  }
+
+  function removeRemoteVideoTile(peerId) {
+    const tile = document.getElementById(`remote-tile-${peerId}`);
+    if (tile) tile.remove();
+  }
+
+  function updatePeerCountBadge() {
+    if (!webrtcPeerCountBadge) return;
+    const peerCount = rtcClient ? rtcClient.peers.size + 1 : 1;
+    webrtcPeerCountBadge.innerHTML = `<i class="bi bi-people"></i> ${peerCount} Participant${peerCount > 1 ? 's' : ''}`;
   }
 }
 

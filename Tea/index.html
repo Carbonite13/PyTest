@@ -288,39 +288,78 @@
             </button>
             <h1 class="display-6 fw-semibold mb-2">Around the Globe</h1>
             <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
-              Join a global conversation using a meeting code.
+              Join a global WebRTC conversation room using a room code.
             </p>
           </div>
 
-          <!-- Prominent Code Entry Card -->
+          <!-- Code Entry Card / Active Conference UI -->
           <div class="row g-4 mt-1">
-            <div class="col-12 col-lg-8 col-xl-7">
-              <div class="card border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+            <div class="col-12 col-lg-10 col-xl-9">
+              <!-- Room Join Form Card -->
+              <div class="card border p-4 shadow-sm mb-4" id="webrtcJoinCard" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
                 <div class="feature-icon-wrapper mb-3">
                   <i class="bi bi-globe2"></i>
                 </div>
-                <h2 class="fs-4 fw-semibold mb-2">Join with a Code</h2>
+                <h2 class="fs-4 fw-semibold mb-2">Join WebRTC Room</h2>
                 <p class="text-secondary fs-6 mb-4">
-                  Enter your conversation code or link to continue.
+                  Enter a room ID or code to start real-time video conferencing.
                 </p>
 
                 <form id="aroundGlobeForm" novalidate>
                   <div class="mb-3">
-                    <label for="globeCodeInput" class="form-label small fw-medium text-secondary">Conversation code or link</label>
+                    <label for="globeCodeInput" class="form-label small fw-medium text-secondary">Room ID or Code</label>
                     <div class="input-group">
-                      <span class="input-group-text text-secondary border-end-0"><i class="bi bi-link-45deg"></i></span>
-                      <input type="text" class="form-control border-start-0" id="globeCodeInput" placeholder="Enter conversation code or link" autocomplete="off">
+                      <span class="input-group-text text-secondary border-end-0"><i class="bi bi-door-open"></i></span>
+                      <input type="text" class="form-control border-start-0" id="globeCodeInput" placeholder="e.g. room-101" autocomplete="off" required>
                     </div>
                   </div>
 
                   <button type="submit" class="btn-primary-custom w-100 justify-content-center fw-semibold" id="globeJoinBtn">
-                    <i class="bi bi-box-arrow-in-right"></i> Join Conversation
+                    <i class="bi bi-telephone-inbound"></i> Connect & Join Room
                   </button>
 
                   <div id="globeFeedback" class="sidebar-status-msg mt-3 d-none">
-                    <!-- Dynamic feedback message rendered by JS -->
+                    <!-- Dynamic feedback message -->
                   </div>
                 </form>
+              </div>
+
+              <!-- Active Video Conferencing Interface -->
+              <div class="card border p-4 shadow-sm d-none" id="videoConferenceInterface" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+                  <div>
+                    <h2 class="fs-5 fw-semibold mb-0" id="conferenceRoomTitle">Room: -</h2>
+                    <span class="small text-muted" id="webrtcStatusLabel">Status: Disconnected</span>
+                  </div>
+                  <span class="status-badge-editorial" id="webrtcPeerCountBadge"><i class="bi bi-people"></i> 1 Participant</span>
+                </div>
+
+                <!-- Video Grid Grid Display -->
+                <div class="row g-3 mb-4" id="videoGridContainer">
+                  <!-- Local Peer Video Stream Tile -->
+                  <div class="col-12 col-md-6" id="localVideoTile">
+                    <div class="video-stream-box position-relative rounded overflow-hidden bg-dark" style="aspect-ratio: 16/9;">
+                      <video id="localVideo" autoplay playsinline muted class="w-100 h-100 object-fit-cover"></video>
+                      <div class="position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white rounded small">
+                        <i class="bi bi-person-circle me-1"></i> You (Local)
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Remote Video Streams appended dynamically -->
+                </div>
+
+                <!-- Meeting Control Bar -->
+                <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 pt-3 border-top" id="conferenceControls">
+                  <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleAudioBtn" title="Mute/Unmute Audio">
+                    <i class="bi bi-mic-fill fs-5" id="audioBtnIcon"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleVideoBtn" title="Enable/Disable Camera">
+                    <i class="bi bi-camera-video-fill fs-5" id="videoBtnIcon"></i>
+                  </button>
+                  <button type="button" class="btn btn-danger rounded-circle p-3" id="leaveCallBtn" title="Leave Conference">
+                    <i class="bi bi-telephone-x-fill fs-5"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
