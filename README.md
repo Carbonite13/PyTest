@@ -34,7 +34,7 @@ We are solving the problem of people missing important information and strugglin
 
 Explain:
 
--What is the problem?
+- What is the problem?
   People struggle to listen, understand, think, and respond simultaneously during conversations. As a result, they may miss important 
   information, forget decisions ,forget their assigned tasks, or fail to respond effectively.
 - Who is affected by it?
