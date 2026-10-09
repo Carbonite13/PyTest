@@ -29,3 +29,7 @@ logs/
 
 # poetry lock files
 poetry.lock
+
+# virtual environment
+.venv/
+.venv
