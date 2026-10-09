@@ -4,25 +4,21 @@ The official project submission repository for **DEFINE 4.0 — The World's Real
 
 ---
 
-# < Project Name >
-
-<!-- Add your project cover image below -->
-
+# TeaPot
 ![Project Cover](./assets/cover.png)
 
 ## Team Information
 
-- **Team Name**:
-- **Track**:
+- **Team Name**: PyTest
+- **Track**: PS-07
 
 ## Team Members
 
 | Name | Role | GitHub | LinkedIn |
 |------|------|--------|----------|
-| Full Name | Role | [@username](https://github.com/username) | [Profile](https://linkedin.com/in/username) |
-| Full Name | Role | [@username](https://github.com/username) | [Profile](https://linkedin.com/in/username) |
-| Full Name | Role | [@username](https://github.com/username) | [Profile](https://linkedin.com/in/username) |
-| Full Name | Role | [@username](https://github.com/username) | [Profile](https://linkedin.com/in/username) |
+| Adithyan L | Technical | [@Carbonite13](https://github.com/carbonite13) | [Profile](https://linkedin.com/in/adithyanaconitum) |
+| Jeffin Mathew Abraham | Technical | [@Jeffin-co](https://github.com/JEFFIN-co) | [Profile](https://linkedin.com/in/) |
+| Nasrin Hakkim | Technical | [@Nasrin-Hakkim](https://github.com/nasrinhakkim960-create) | [Profile](https://linkedin.com/in/username) |
 
 ---
 
