@@ -1,80 +1,56 @@
-# Meeting Session REST Endpoints
-# Defines the HTTP API surface for meeting lifecycle management:
-#   - Creating a meeting (generates a code, sets host)
-#   - Looking up a meeting by code or ID
-#   - Ending a meeting (host-only)
-#   - Listing all sessions (dev/debug only)
-#
-# These endpoints do NOT handle WebRTC signaling (see signaling.py).
-# They operate on the higher-level MeetingSession abstraction.
+"""REST endpoints for meeting lifecycle.
+
+Media and transcription events stay on the authenticated WebSocket.  This
+router intentionally does not accept microphone/audio uploads.
+"""
 
 import json
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
 from typing import Optional
 
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
+
 from Pot.core.log import module_log
-from Pot.core.session import session_manager, SessionStatus
 from Pot.core.room import room_manager
-from Pot.core.audio_pipeline import audio_pipeline
+from Pot.core.session import SessionStatus, session_manager
+from Pot.core.transcript import transcript_service
 
 __all__ = ["sessionsRouter"]
 
 logger = module_log(__name__)
-
 sessionsRouter = APIRouter(tags=["sessions"])
 
 
-# ── Request Models ──────────────────────────────────────────────────────────
-
 class CreateSessionRequest(BaseModel):
-    """Body for POST /sessions"""
-    host_peer_id: str
-    host_display_name: Optional[str] = None
+    host_peer_id: Optional[str] = Field(None, min_length=1, max_length=128)
+    host_display_name: Optional[str] = Field(None, max_length=128)
 
 
 class EndSessionRequest(BaseModel):
-    """Body for DELETE /sessions/{session_id}"""
-    peer_id: str  # Must match the host to be authorised
+    peer_id: str = Field(..., min_length=1, max_length=128)
+    host_token: Optional[str] = Field(None, min_length=16, max_length=256)
 
-
-# ── Endpoints ───────────────────────────────────────────────────────────────
 
 @sessionsRouter.post("/sessions", status_code=201)
 async def create_session(body: CreateSessionRequest):
-    """
-    Create a new meeting session.
-    Returns the session info including the generated meeting code and session_id.
-    The session_id is the room_id used by the WebSocket signaling layer.
-    """
-    session = session_manager.create_session(
-        host_peer_id=body.host_peer_id,
-        host_display_name=body.host_display_name,
-    )
-    # Immediately join the host into the signaling room
-    # (host connects over WS after calling this, so the room will be created lazily on join)
-    logger.info(f"Session created via API: {session.session_id} code={session.meeting_code}")
+    session, host_token = session_manager.create_session_with_token(body.host_peer_id, body.host_display_name)
     return {
         "status": "created",
         "session": session.info(),
-        "instructions": {
-            "join_ws": f"Connect to /rtc/ws and send a 'join' message with room_id='{session.session_id}'",
-            "share_code": f"Share meeting code '{session.meeting_code}' with participants",
-        },
+        "host_token": host_token,
+        "instructions": {"join_ws": f"Connect to /rtc/ws and send a nested join payload for room_id='{session.session_id}'", "share_code": session.meeting_code},
     }
 
 
 @sessionsRouter.get("/sessions")
 async def list_sessions():
-    """List all sessions (active, waiting, and ended)."""
     sessions = session_manager.list_sessions()
     return {"count": len(sessions), "sessions": sessions}
 
 
 @sessionsRouter.get("/sessions/{session_id}")
 async def get_session(session_id: str):
-    """Get full metadata for a specific session by its ID."""
     session = session_manager.get_session(session_id)
     if not session:
         return JSONResponse(status_code=404, content={"status": "error", "message": "Session not found"})
@@ -83,10 +59,9 @@ async def get_session(session_id: str):
 
 @sessionsRouter.get("/sessions/by-code/{meeting_code}")
 async def get_session_by_code(meeting_code: str):
-    """Resolve a human-readable meeting code to its session info."""
     session = session_manager.get_session_by_code(meeting_code)
     if not session:
-        return JSONResponse(status_code=404, content={"status": "error", "message": f"No session with code '{meeting_code}'"})
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Meeting not found"})
     if session.status == SessionStatus.ENDED:
         return JSONResponse(status_code=410, content={"status": "ended", "message": "This meeting has already ended"})
     return session.info()
@@ -94,69 +69,57 @@ async def get_session_by_code(meeting_code: str):
 
 @sessionsRouter.delete("/sessions/{session_id}")
 async def end_session(session_id: str, body: EndSessionRequest):
-    """
-    Terminate a meeting session.  Only the session host may call this.
-    Broadcasts 'session_ended' to all connected peers in the signaling room,
-    closes session log, and marks the session as ended.
-    """
-    session = session_manager.end_session(session_id, requester_peer_id=body.peer_id)
+    session = session_manager.end_session(session_id, body.peer_id, body.host_token)
     if session is None:
-        return JSONResponse(
-            status_code=403,
-            content={"status": "error", "message": "Session not found or you are not the host"},
-        )
-
-    # Notify all peers in the signaling room that the meeting is over
-    await room_manager.broadcast_to_room(session_id, {
-        "type": "session_ended",
-        "session_id": session_id,
-        "ended_by": body.peer_id,
-        "message": "The meeting host has ended this session.",
-    })
-
-    # Close the session-level audio transcript log
-    audio_pipeline.end_meeting_session(session_id)
-
-    logger.info(f"Session {session_id} ended and resources released")
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Session not found or you are not the host"})
+    end_message = {"type": "session_ended", "session_id": session_id, "ended_by": body.peer_id, "message": "The meeting host has ended this session."}
+    room = room_manager.get_room(session_id)
+    waiting = list(room.waiting_peers.values()) if room else []
+    connected = (list(room.peers.values()) + waiting) if room else []
+    await room_manager.broadcast_to_room(session_id, end_message)
+    for peer in waiting:
+        try:
+            await peer.websocket.send_json(end_message)
+        except Exception:
+            pass
+    room_manager.terminate_room(session_id)
+    for peer in connected:
+        try:
+            await peer.websocket.close(code=1000, reason="Meeting ended")
+        except Exception:
+            pass
+    transcript_service.clear_meeting(session_id)
     return {"status": "ended", "session": session.info()}
 
 
-# ── Audio Capture & SSE Stream ───────────────────────────────────────────────
-# Grouped here with session context since they are session-scoped operations.
-
 @sessionsRouter.post("/sessions/{session_id}/peers/{peer_id}/audio")
-async def ingest_audio_chunk(session_id: str, peer_id: str, request: Request):
-    """
-    Accept a raw audio chunk (audio/webm) from a peer, pass it through the
-    transcription pipeline, and return the resulting transcript entry.
-    """
-    body = await request.body()
-    if not body:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Empty audio payload"})
+async def reject_raw_audio_upload(session_id: str, peer_id: str):
+    """Explicitly reject the legacy server-side transcription path."""
+    return JSONResponse(status_code=410, content={"status": "unsupported", "message": "Raw audio uploads are disabled; transcribe locally and send transcript events over /rtc/ws."})
 
-    session = session_manager.get_session(session_id)
-    if not session or session.status == SessionStatus.ENDED:
-        return JSONResponse(status_code=404, content={"status": "error", "message": "Session not found or ended"})
 
-    transcript = audio_pipeline.receive_audio_chunk(session_id, peer_id, body)
-    return {
-        "status": "ok",
-        "session_id": session_id,
-        "peer_id": peer_id,
-        "bytes_received": len(body),
-        "transcript": transcript,
-    }
+async def _stream_transcripts(session_id: str, peer_id: str):
+    room = room_manager.get_room(session_id)
+    peer = room.peers.get(peer_id) if room else None
+    if not peer or not peer.admitted:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "An admitted meeting participant is required"})
+
+    async def events():
+        async for event in transcript_service.subscribe(session_id):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@sessionsRouter.get("/sessions/{session_id}/transcript-stream")
+async def stream_transcripts(session_id: str, peer_id: str):
+    """Authenticated compatibility stream for text events only."""
+    return await _stream_transcripts(session_id, peer_id)
 
 
 @sessionsRouter.get("/sessions/{session_id}/audio-stream")
-async def stream_session_audio(session_id: str):
-    """
-    Subscribe to the live transcription event stream for a session via Server-Sent Events.
-    Intended for external consumers (AI assistants, note-takers, live caption services).
-    """
-    async def event_generator():
-        async for event in audio_pipeline.subscribe_stream(session_id):
-            yield f"data: {json.dumps(event)}\n\n"
-
-    logger.info(f"SSE consumer attached to session '{session_id}' audio stream")
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+async def reject_legacy_audio_stream(session_id: str, peer_id: Optional[str] = None):
+    """The old endpoint cannot expose raw audio or unauthenticated text."""
+    if not peer_id:
+        return JSONResponse(status_code=410, content={"status": "unsupported", "message": "Use /transcript-stream with an admitted peer_id; server-side audio transcription is disabled."})
+    return await _stream_transcripts(session_id, peer_id)

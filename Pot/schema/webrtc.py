@@ -2,7 +2,8 @@
 # Pydantic models for SDP exchange, ICE candidates,
 # room lifecycle events, and error responses
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Literal
 from enum import Enum
 
@@ -17,6 +18,8 @@ __all__ = [
     "ICEServerConfig",
     "PeerEvent",
     "ErrorPayload",
+    "TranscriptEvent",
+    "TranscriptEventType",
 ]
 
 
@@ -38,6 +41,7 @@ class SignalType(str, Enum):
     WAITING_FOR_HOST = "waiting_for_host"
     JOIN_REQUEST_RECVD = "join_request_recvd"
     JOIN_REJECTED = "join_rejected"
+    TRANSCRIPT = "transcript"
 
 
 class SDPPayload(BaseModel):
@@ -59,6 +63,10 @@ class RoomJoinPayload(BaseModel):
     """Payload sent when a peer wants to join a room"""
     room_id: str = Field(..., min_length=1, max_length=64, description="Room identifier")
     display_name: Optional[str] = Field(None, max_length=128, description="Human-readable peer name")
+    # A host-only capability returned by POST /rtc/sessions.  It allows a
+    # refreshed host connection to reclaim the existing session without
+    # trusting a client-supplied peer id.
+    host_token: Optional[str] = Field(None, min_length=16, max_length=256)
 
 
 class RoomLeavePayload(BaseModel):
@@ -98,6 +106,55 @@ class SignalMessage(BaseModel):
     admission: Optional[AdmissionPayload] = Field(None, description="Host admission payload")
     peer_event: Optional[PeerEvent] = Field(None, description="Peer lifecycle event")
     error: Optional[ErrorPayload] = Field(None, description="Error payload")
+    transcript: Optional["TranscriptEvent"] = Field(None, description="Client-side transcript event")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TranscriptEventType(str, Enum):
+    PARTIAL = "partial"
+    FINAL = "final"
+    STATUS = "status"
+    ERROR = "error"
+
+
+class TranscriptEvent(BaseModel):
+    """Versioned event emitted by a participant's local ASR adapter.
+
+    ``sequence_number`` is monotonically increasing per ``session_id`` and
+    participant.  ``created_at`` is an RFC3339 UTC timestamp.  Source timing
+    is expressed in seconds relative to the local ASR/media session and is
+    optional because browser-native engines do not consistently expose it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str = Field(..., min_length=8, max_length=128)
+    meeting_id: str = Field(..., min_length=1, max_length=128)
+    participant_id: str = Field(..., min_length=1, max_length=128)
+    session_id: str = Field(..., min_length=1, max_length=128)
+    sequence_number: int = Field(..., ge=0)
+    event_type: TranscriptEventType
+    text: Optional[str] = Field(None, max_length=4000)
+    start_time: Optional[float] = Field(None, ge=0)
+    end_time: Optional[float] = Field(None, ge=0)
+    created_at: datetime
+    protocol_version: Literal["1"] = "1"
+
+    @field_validator("created_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("created_at must include a timezone")
+        return value
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "TranscriptEvent":
+        """Parse a wire event while retaining a single canonical schema."""
+        return cls.model_validate(payload)
+
+
+SignalMessage.model_rebuild()
 
 
 class ICEServerConfig(BaseModel):

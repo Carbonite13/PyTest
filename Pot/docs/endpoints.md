@@ -1,34 +1,39 @@
-# OpenAPI Compatible Endpoint Documentation
+# Meeting endpoints
 
-## Page Endpoints
-endpoitns that are responsible for presenting html pages and appropriate responses
+## REST
 
-### GET `/about` 
-Request: {}
-Response: {}
-Status Codes: [200,...]
-Error Response: {
-    "status": "error",
-    "message": ""
-}
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/rtc/sessions` | Create a meeting; returns `session`, `meeting_code`, and a private `host_token`. |
+| `GET` | `/rtc/sessions/by-code/{meeting_code}` | Resolve a live meeting code; returns `410` after termination. |
+| `GET` | `/rtc/sessions/{session_id}` | Read lifecycle metadata. |
+| `DELETE` | `/rtc/sessions/{session_id}` | End a meeting with `{ "peer_id": "...", "host_token": "..." }`; host only. |
+| `GET` | `/rtc/ice-servers` | Return configured STUN/TURN servers. |
+| `GET` | `/rtc/rooms` | Development room diagnostics. |
+| `GET` | `/rtc/sessions/{session_id}/transcript-stream?peer_id=...` | Authenticated text-event SSE compatibility stream. |
 
-## WebRTC Signaling & Audio Stream Endpoints
-See [webrtc.md](./webrtc.md) for full WebRTC signaling documentation including:
-- REST endpoints: `/rtc/ice-servers`, `/rtc/rooms`, `/rtc/rooms/{room_id}`
-- Audio stream ingestion: `POST /rtc/rooms/{room_id}/peers/{peer_id}/audio`
-- Outbound SSE stream: `GET /rtc/rooms/{room_id}/audio-stream`
-- WebSocket signaling: `/rtc/ws`
-- Debug endpoint: `/debug/rtc`
+`POST /rtc/sessions/{id}/peers/{peer}/audio` is retained only as an explicit
+compatibility response and returns `410 Gone`; raw audio is not accepted.
 
-## Meeting Session Endpoints
+## WebSocket `/rtc/ws`
 
-| Method   | Path                                              | Description                                       |
-|----------|---------------------------------------------------|---------------------------------------------------|
-| POST     | `/rtc/sessions`                                   | Create meeting — returns meeting code + session_id |
-| GET      | `/rtc/sessions`                                   | List all sessions                                  |
-| GET      | `/rtc/sessions/{session_id}`                      | Get session details by ID                          |
-| GET      | `/rtc/sessions/by-code/{meeting_code}`            | Resolve human-readable code → session info         |
-| DELETE   | `/rtc/sessions/{session_id}`                      | End meeting (host only)                            |
-| POST     | `/rtc/sessions/{session_id}/peers/{peer_id}/audio`| Ingest audio chunk for transcription               |
-| GET      | `/rtc/sessions/{session_id}/audio-stream`         | SSE stream of live transcription events            |
+The server sends `welcome` with a random `peer_id`. Messages use nested
+payloads:
 
+```json
+{"type":"join","join":{"room_id":"...","display_name":"Ada","host_token":"..."}}
+{"type":"offer","sdp":{"sdp":"...","sdp_type":"offer","target_peer_id":"..."}}
+{"type":"answer","sdp":{"sdp":"...","sdp_type":"answer","target_peer_id":"..."}}
+{"type":"ice_candidate","ice":{"candidate":"...","sdp_mid":"0","sdp_mline_index":0,"target_peer_id":"..."}}
+{"type":"leave","leave":{"room_id":"..."}}
+{"type":"transcript","transcript":{"event_id":"event-0001","meeting_id":"...","participant_id":"...","session_id":"...","sequence_number":0,"event_type":"final","text":"Hello","start_time":null,"end_time":null,"created_at":"2026-01-01T00:00:00Z","protocol_version":"1"}}
+```
+
+SDP/ICE is relayed only if both peers are admitted to the sender's current
+room. ICE arriving before a remote description is queued by the browser and
+flushed after `setRemoteDescription`.
+
+Errors are sent as `{ "type": "error", "error": { "code", "message" } }`.
+`400` is malformed input, `403` is an unauthorized room/participant action,
+`404` is an unknown meeting/peer, `409` is a duplicate transcript event, and
+`410` means the meeting has ended.

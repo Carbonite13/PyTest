@@ -7,6 +7,15 @@ The official project submission repository for **DEFINE 4.0 — The World's Real
 # TeaPot
 ![Project Cover](./assets/cover.png)
 
+## Meeting system audit
+
+The current implementation is a FastAPI signaling relay with browser-to-browser
+WebRTC media. Meeting state and WebSocket rooms are in-process and therefore
+run with one worker. Client transcription sends versioned text events only; the
+server rejects raw audio uploads. See [Pot/docs/backend_architecture.md](Pot/docs/backend_architecture.md),
+[Pot/docs/webrtc.md](Pot/docs/webrtc.md), and [Pot/docs/endpoints.md](Pot/docs/endpoints.md)
+for lifecycle, signaling, privacy, deployment, and testing details.
+
 ## Team Information
 
 - **Team Name**: PyTest

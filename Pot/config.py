@@ -19,39 +19,39 @@ class Settings(BaseSettings):
     )
 
     # STUN server configuration
-    stun_server: str = Field(default="stun:stun.l.google.com:19302", env="STUN_SERVER")
+    stun_server: str = Field(default="stun:stun.l.google.com:19302")
 
     # TURN server configuration (optional, for full NAT traversal)
-    turn_server: Optional[str] = Field(default=None, env="TURN_SERVER")
-    turn_username: Optional[str] = Field(default=None, env="TURN_USERNAME")
-    turn_credential: Optional[str] = Field(default=None, env="TURN_CREDENTIAL")
+    turn_server: Optional[str] = Field(default=None)
+    turn_username: Optional[str] = Field(default=None)
+    turn_credential: Optional[str] = Field(default=None)
 
     # profile
-    profile: Literal["dev", "prod"] = Field(..., env="PROFILE")
+    profile: Literal["dev", "prod"] = Field(...)
 
     # Database configurations
-    db_hostname: str = Field(..., env="DB_HOSTNAME")
-    db_port: int = Field(..., env="DB_PORT")
-    db_name: str = Field(..., env="DB_NAME")
-    db_username: str = Field(..., env="DB_USERNAME")
-    db_password: str = Field(..., env="DB_PASSWORD")
-    db_external_url: str = Field(..., env="DB_EXTERNAL_URL")
+    db_hostname: str = Field(...)
+    db_port: int = Field(...)
+    db_name: str = Field(...)
+    db_username: str = Field(...)
+    db_password: str = Field(...)
+    db_external_url: str = Field(...)
 
     # App configurations details
-    app_info_name: str = Field(..., env="APP_INFO_NAME")
-    app_info_version: str = Field(..., env="APP_INFO_VERSION")
-    app_info_author: str = Field(..., env="APP_INFO_AUTHOR")
-    app_info_description: str = Field(..., env="APP_INFO_DESCRIPTION")
-    app_contact_email: str = Field(..., env="APP_CONTACT_EMAIL")
-    app_contact_phone: str = Field(..., env="APP_CONTACT_PHONE")
+    app_info_name: str = Field(...)
+    app_info_version: str = Field(...)
+    app_info_author: str = Field(...)
+    app_info_description: str = Field(...)
+    app_contact_email: str = Field(...)
+    app_contact_phone: str = Field(...)
 
     # Directory details
-    app_root: str = Field(..., env="APP_ROOT")
-    log_directory: str = Field(..., env="LOG_DIRECTORY")
-    data_directory: str = Field(..., env="DATA_DIRECTORY")
+    app_root: str = Field(...)
+    log_directory: str = Field(...)
+    data_directory: str = Field(...)
     
     # Permissions details
-    perm_directory_create: bool = Field(..., env="PERM_DIRECTORY_CREATE")
+    perm_directory_create: bool = Field(...)
 
     @field_validator("app_root", "log_directory", "data_directory")
     @classmethod

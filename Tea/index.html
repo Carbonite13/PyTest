@@ -366,6 +366,9 @@
                   <div>
                     <h2 class="fs-5 fw-semibold mb-0" id="conferenceRoomTitle">Room: -</h2>
                     <span class="small text-muted" id="webrtcStatusLabel">Status: Disconnected</span>
+                    <div class="small fw-medium text-primary mt-1" id="meetingCodeDisplay" style="display: none;">
+                      Code: <span id="meetingCodeText" class="user-select-all font-monospace px-1 rounded bg-light text-dark"></span>
+                    </div>
                   </div>
                   <span class="status-badge-editorial" id="webrtcPeerCountBadge"><i class="bi bi-people"></i> 1 Participant</span>
                 </div>
@@ -384,6 +387,20 @@
                   <!-- Remote Video Streams appended dynamically -->
                 </div>
 
+                <!-- Host Admission Requests Container (Dynamic) -->
+                <div id="admissionRequestsContainer" class="d-flex flex-column gap-2 mb-3"></div>
+
+                <!-- Text-only transcript events; microphone audio stays in the browser. -->
+                <div class="card bg-transparent border-secondary-subtle mb-3" id="transcriptPanel">
+                  <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="small fw-semibold text-primary">Live transcript</span>
+                      <span class="small text-muted" id="transcriptionStatus">Off</span>
+                    </div>
+                    <div class="small text-secondary" id="transcriptEvents" aria-live="polite">No transcript events yet.</div>
+                  </div>
+                </div>
+
                 <!-- Meeting Control Bar -->
                 <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 pt-3 border-top" id="conferenceControls">
                   <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleAudioBtn" title="Mute/Unmute Audio">
@@ -391,6 +408,9 @@
                   </button>
                   <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleVideoBtn" title="Enable/Disable Camera">
                     <i class="bi bi-camera-video-fill fs-5" id="videoBtnIcon"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleTranscriptionBtn" title="Start/stop text-only transcription">
+                    <i class="bi bi-file-text fs-5" id="transcriptionBtnIcon"></i>
                   </button>
                   <button type="button" class="btn btn-danger rounded-circle p-3" id="leaveCallBtn" title="Leave Conference">
                     <i class="bi bi-telephone-x-fill fs-5"></i>

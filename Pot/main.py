@@ -35,15 +35,17 @@ def create_app(config: Settings) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        # WebSocket peer identity/capabilities are carried by the connection;
+        # the MVP does not use browser cookies or credentialed CORS.
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     # include the debug router and expose its endpoints
     # if the application is in development profile
-    if settings.profile == "dev":
-        logger.warn("Including Debug router")
+    if config.profile == "dev":
+        logger.warning("Including Debug router")
         app.include_router(debugRouter, prefix="/debug")
 
     # WebRTC signaling router — always active
@@ -79,7 +81,9 @@ def main():
         port=9030,
         reload=True if settings.profile.lower() == "dev" else False,
         log_level="debug" if settings.profile.lower() == "dev" else "info",
-        workers=4,
+        # Room/session state is intentionally in-process. Multiple workers
+        # would split signaling state and make reconnects appear phantom.
+        workers=1,
     )
 
     server = corn.Server(config=server_config)
