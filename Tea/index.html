@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace Assistant — Home Dashboard</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Bootstrap Icons CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <!-- Project Stylesheets (Connected in modular order) -->
+  <link rel="stylesheet" href="css/variable.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Sidebar Header / Neutral Brand Placeholder -->
+      <div class="sidebar-header">
+        <div class="brand-placeholder">
+          <div class="brand-icon-box">
+            <i class="bi bi-box-seam"></i>
+          </div>
+          <span>Workspace Assistant</span>
+        </div>
+      </div>
+
+      <!-- Sidebar Body -->
+      <div class="sidebar-body">
+        <nav class="nav flex-column gap-1">
+          <a href="#" class="nav-link-custom active" id="navHomeLink">
+            <i class="bi bi-house-door"></i>
+            <span>Home</span>
+          </a>
+        </nav>
+
+        <div class="nav-section-label">Previous Conversations</div>
+        
+        <!-- Dynamic Conversation History Container (Populated via AJAX) -->
+        <ul class="conversation-list" id="conversationList">
+          <!-- Dynamically populated or state messages rendered via JS -->
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content Layout -->
+    <div class="app-main">
+      
+      <!-- Top Navbar Header (Deep Burgundy Theme) -->
+      <header class="app-header">
+        <div class="d-flex align-items-center gap-3">
+          <!-- Mobile Sidebar Toggle -->
+          <button class="btn btn-sm text-light border-0 d-lg-none" id="sidebarToggleBtn" aria-label="Toggle navigation menu">
+            <i class="bi bi-list fs-4"></i>
+          </button>
+          
+          <span class="fw-medium fs-6" style="color: var(--text-sidebar-primary);" id="headerPageTitle">Home</span>
+        </div>
+
+        <!-- Right Header Items: Profile & Dropdown -->
+        <div class="d-flex align-items-center gap-3">
+          <div class="dropdown">
+            <button class="profile-btn dropdown-toggle" type="button" id="profileDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+              <div class="avatar-circle">JD</div>
+              <span class="d-none d-sm-inline">Jane Doe</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-custom" aria-labelledby="profileDropdownBtn">
+              <li>
+                <div class="px-3 py-2 border-bottom">
+                  <div class="fw-semibold text-dark">Jane Doe</div>
+                  <div class="small text-muted">jane.doe@example.com</div>
+                </div>
+              </li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom mt-1" href="#" id="dropdownAccountLink">
+                  <i class="bi bi-person"></i> Account Settings
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom" href="#" id="dropdownPreferencesLink">
+                  <i class="bi bi-sliders"></i> Preferences & Customization
+                </a>
+              </li>
+              <li><hr class="dropdown-divider my-1"></li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom text-danger" href="#">
+                  <i class="bi bi-box-arrow-right"></i> Sign Out
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dashboard Main Content -->
+      <main class="dashboard-content">
+        
+        <!-- Home View Container -->
+        <div id="homeView">
+          <!-- Hero Welcoming Section -->
+          <section class="hero-section">
+            <div class="row align-items-center gy-4">
+              <div class="col-lg-8">
+                <div class="mb-2">
+                  <span class="status-badge-editorial">
+                    <i class="bi bi-stars"></i> Workspace Assistant
+                  </span>
+                </div>
+                <h1 class="display-6 fw-semibold mb-3 text-dark">
+                  Streamline conversations with intelligent organization.
+                </h1>
+                <p class="lead fs-6 text-secondary mb-4" style="max-width: 640px;">
+                  A clean, minimal digital assistant designed to help organize meeting discussions, identify action items, and maintain clear records without distracting from the conversation.
+                </p>
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                  <button type="button" class="btn-primary-custom" id="startMeetingBtn">
+                    <i class="bi bi-camera-video"></i> Start Meeting
+                  </button>
+                  <button type="button" class="btn-secondary-custom">
+                    <i class="bi bi-journal-text"></i> View Guide
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Feature Highlights Section -->
+          <section class="mt-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="fs-5 fw-semibold text-dark mb-0">Intended Capabilities</h2>
+              <span class="text-muted small">Core Platform Objectives</span>
+            </div>
+
+            <div class="row g-4">
+              <!-- Feature 1 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-body-text"></i>
+                  </div>
+                  <h3 class="feature-title">Real-time Summaries</h3>
+                  <p class="feature-desc">
+                    Structure key discussion points and main takeaways dynamically as conversations progress.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 2 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-check2-square"></i>
+                  </div>
+                  <h3 class="feature-title">Action Items</h3>
+                  <p class="feature-desc">
+                    Automatically highlight assigned tasks, responsible owners, and follow-up deadlines.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 3 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-lightbulb"></i>
+                  </div>
+                  <h3 class="feature-title">Smart Suggestions</h3>
+                  <p class="feature-desc">
+                    Receive contextual prompts and relevant insights to support active participation.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 4 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-shield-check"></i>
+                  </div>
+                  <h3 class="feature-title">Privacy & Control</h3>
+                  <p class="feature-desc">
+                    Designed with strict data protection, user authorization, and privacy-first standards.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Start Meeting View Container -->
+        <div id="startMeetingView" class="d-none">
+          <!-- Back button & View Header -->
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="backToHomeBtn">
+              <i class="bi bi-arrow-left"></i> Back to Home
+            </button>
+            <h1 class="display-6 fw-semibold text-dark mb-2">Meet the way you work.</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
+              Start a new meeting instantaneously or join an active discussion using a meeting code or link.
+            </p>
+          </div>
+
+          <div class="row g-4 mt-2">
+            <!-- Option A: New Meeting -->
+            <div class="col-12 col-lg-6">
+              <div class="card h-100 border p-4 shadow-sm bg-white" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="feature-icon-wrapper mb-3">
+                  <i class="bi bi-camera-video"></i>
+                </div>
+                <h2 class="fs-4 fw-semibold text-dark mb-2">New meeting</h2>
+                <p class="text-secondary fs-6 mb-4">
+                  Create an instant meeting session and generate a shareable link for participants.
+                </p>
+                <div class="mt-auto">
+                  <button type="button" class="btn-primary-custom w-100 justify-content-center" id="createMeetingBtn">
+                    <i class="bi bi-camera-video-fill"></i> New meeting
+                  </button>
+                  <div id="createMeetingFeedback" class="sidebar-status-msg status-empty mt-3 d-none">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Meeting creation service will be connected when backend server is online.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Option B: Join with a Code -->
+            <div class="col-12 col-lg-6">
+              <div class="card h-100 border p-4 shadow-sm bg-white" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="feature-icon-wrapper mb-3">
+                  <i class="bi bi-keyboard"></i>
+                </div>
+                <h2 class="fs-4 fw-semibold text-dark mb-2">Join with a code</h2>
+                <p class="text-secondary fs-6 mb-3">
+                  Enter a meeting code or meeting link to enter an active workspace discussion.
+                </p>
+
+                <form id="joinMeetingForm" novalidate class="mt-auto">
+                  <div class="mb-3">
+                    <label for="meetingCodeInput" class="form-label small fw-medium text-secondary">Meeting code or link</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-link-45deg"></i></span>
+                      <input type="text" class="form-control border-start-0" id="meetingCodeInput" placeholder="e.g. abc-defg-hij or meeting link" autocomplete="off">
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-secondary-custom w-100 justify-content-center fw-semibold" id="joinMeetingBtn">
+                    <i class="bi bi-box-arrow-in-right"></i> Join meeting
+                  </button>
+
+                  <div id="joinMeetingFeedback" class="sidebar-status-msg mt-3 d-none">
+                    <!-- Dynamic feedback message rendered by JS -->
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account Settings View Container -->
+        <div id="accountSettingsView" class="d-none">
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="accountBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </button>
+            <h1 class="display-6 fw-semibold text-dark mb-2">Account Settings</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
+              Manage your personal profile information, default assistant preferences, and access conversation customization.
+            </p>
+          </div>
+
+          <form id="accountSettingsForm" novalidate>
+            <div class="row g-4 mt-1">
+              <!-- Personal Information Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card h-100 border p-4 shadow-sm bg-white" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="avatar-circle" style="width: 48px; height: 48px; font-size: 1.1rem;">JD</div>
+                    <div>
+                      <h2 class="fs-5 fw-semibold text-dark mb-1">Personal Information</h2>
+                      <p class="text-secondary small mb-0">Your profile identity and workspace details</p>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingDisplayName" class="form-label small fw-medium text-secondary">Display Name</label>
+                    <input type="text" class="form-control" id="settingDisplayName" value="Jane Doe" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingEmail" class="form-label small fw-medium text-secondary">Email Address</label>
+                    <input type="email" class="form-control" id="settingEmail" value="jane.doe@example.com" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingRole" class="form-label small fw-medium text-secondary">Professional Role</label>
+                    <input type="text" class="form-control" id="settingRole" value="Product Manager">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Assistant Preferences Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card h-100 border p-4 shadow-sm bg-white" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="feature-icon-wrapper mb-0" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                      <i class="bi bi-sliders"></i>
+                    </div>
+                    <div>
+                      <h2 class="fs-5 fw-semibold text-dark mb-1">Assistant Preferences</h2>
+                      <p class="text-secondary small mb-0">Language defaults and summary preferences</p>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingLanguage" class="form-label small fw-medium text-secondary">Preferred Language</label>
+                    <select class="form-select" id="settingLanguage">
+                      <option value="en-US" selected>English (US)</option>
+                      <option value="en-UK">English (UK)</option>
+                      <option value="es">Spanish (Español)</option>
+                      <option value="fr">French (Français)</option>
+                      <option value="de">German (Deutsch)</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label small fw-medium text-secondary">Default Summary Length</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryConcise" value="concise">
+                        <label class="form-check-label small text-dark" for="summaryConcise">Concise</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryBalanced" value="balanced" checked>
+                        <label class="form-check-label small text-dark" for="summaryBalanced">Balanced</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryDetailed" value="detailed">
+                        <label class="form-check-label small text-dark" for="summaryDetailed">Detailed</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label small fw-medium text-secondary">Preferred Insight Types</label>
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightDecisions" checked>
+                          <label class="form-check-label small text-dark" for="insightDecisions">Key Decisions</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightTasks" checked>
+                          <label class="form-check-label small text-dark" for="insightTasks">Action Items & Tasks</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightRisks">
+                          <label class="form-check-label small text-dark" for="insightRisks">Risks & Concerns</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightSuggestions" checked>
+                          <label class="form-check-label small text-dark" for="insightSuggestions">Suggested Responses</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Shortcut to Customization Page -->
+            <div class="card border p-4 shadow-sm bg-white mt-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div>
+                  <h3 class="fs-6 fw-semibold text-dark mb-1">Conversation Priorities & Approach</h3>
+                  <p class="text-secondary small mb-0">Configure what topics the assistant monitors and what questions or response suggestions it provides.</p>
+                </div>
+                <button type="button" class="btn-secondary-custom" id="goToCustomizationBtn">
+                  <i class="bi bi-sliders"></i> Open Customization Page
+                </button>
+              </div>
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-4">
+              <button type="submit" class="btn-primary-custom" id="saveAccountSettingsBtn">
+                <i class="bi bi-check-lg"></i> Save Changes
+              </button>
+              <button type="button" class="btn-secondary-custom" id="resetAccountSettingsBtn">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset Defaults
+              </button>
+            </div>
+
+            <div id="accountSettingsFeedback" class="sidebar-status-msg mt-3 d-none">
+              <!-- Dynamic feedback message -->
+            </div>
+          </form>
+        </div>
+
+        <!-- Customization View Container -->
+        <div id="customizationView" class="d-none">
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="customizationBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Settings
+            </button>
+            <h1 class="display-6 fw-semibold text-dark mb-2">Conversation Customization</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 680px;">
+              Define what information matters to you and choose the conversation style and question suggestions the assistant should provide.
+            </p>
+          </div>
+
+          <form id="customizationForm" novalidate>
+            <!-- Section A: What matters to me -->
+            <div class="card border p-4 shadow-sm bg-white mb-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3 pb-3 border-bottom">
+                <div>
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="status-badge-editorial">Section A</span>
+                    <h2 class="fs-5 fw-semibold text-dark mb-0">My priorities</h2>
+                  </div>
+                  <p class="text-secondary small mb-0">Choose what the assistant should pay attention to during your conversations.</p>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSectionABtn">
+                  <i class="bi bi-arrow-counterclockwise"></i> Restore Section A Defaults
+                </button>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_key_points" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="priority_key_points">Key discussion points</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_decisions" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="priority_decisions">Decisions & agreements</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_tasks" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="priority_tasks">My tasks & commitments</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_deadlines" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="priority_deadlines">Deadlines & timelines</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_risks">
+                    <label class="form-check-label small fw-medium text-dark" for="priority_risks">Risks, objections, & concerns</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_budgets">
+                    <label class="form-check-label small fw-medium text-dark" for="priority_budgets">Costs, budgets, & commercial terms</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_questions">
+                    <label class="form-check-label small fw-medium text-dark" for="priority_questions">Unanswered questions</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priority_opportunities" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="priority_opportunities">Opportunities & next steps</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section B: What should I ask or say? -->
+            <div class="card border p-4 shadow-sm bg-white mb-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3 pb-3 border-bottom">
+                <div>
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="status-badge-editorial">Section B</span>
+                    <h2 class="fs-5 fw-semibold text-dark mb-0">My conversation approach</h2>
+                  </div>
+                  <p class="text-secondary small mb-0">Choose the types of questions and response suggestions that would help you during a conversation.</p>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSectionBBtn">
+                  <i class="bi bi-arrow-counterclockwise"></i> Reset Section B Defaults
+                </button>
+              </div>
+
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_clarifying" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="approach_clarifying">Clarifying questions</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_followup" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="approach_followup">Follow-up questions</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_disagree">
+                    <label class="form-check-label small fw-medium text-dark" for="approach_disagree">Polite ways to disagree</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_negotiation">
+                    <label class="form-check-label small fw-medium text-dark" for="approach_negotiation">Negotiation & proposals</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_uncover_risks">
+                    <label class="form-check-label small fw-medium text-dark" for="approach_uncover_risks">Questions to uncover risks</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_evidence">
+                    <label class="form-check-label small fw-medium text-dark" for="approach_evidence">Request evidence or examples</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_objections">
+                    <label class="form-check-label small fw-medium text-dark" for="approach_objections">Handling objections</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="approach_responses" checked>
+                    <label class="form-check-label small fw-medium text-dark" for="approach_responses">Professional talking points</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preferred Response Style Selector -->
+              <div class="pt-3 border-top">
+                <label class="form-label small fw-semibold text-dark mb-2">Preferred Response Style</label>
+                <p class="text-secondary small mb-3">Select the tone and detail level for assistant suggestions during discussions.</p>
+                
+                <div class="row g-3">
+                  <div class="col-6 col-md-3">
+                    <div class="form-check card p-3 h-100 border text-center" style="border-color: var(--border-color) !important;">
+                      <input class="form-check-input mx-auto mb-2" type="radio" name="responseStyle" id="styleConcise" value="concise">
+                      <label class="form-check-label fw-semibold small d-block" for="styleConcise">Concise</label>
+                      <span class="text-secondary" style="font-size: 0.75rem;">Short & direct points</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <div class="form-check card p-3 h-100 border text-center" style="border-color: var(--border-color) !important;">
+                      <input class="form-check-input mx-auto mb-2" type="radio" name="responseStyle" id="styleDiplomatic" value="diplomatic" checked>
+                      <label class="form-check-label fw-semibold small d-block" for="styleDiplomatic">Diplomatic</label>
+                      <span class="text-secondary" style="font-size: 0.75rem;">Tactful & balanced</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <div class="form-check card p-3 h-100 border text-center" style="border-color: var(--border-color) !important;">
+                      <input class="form-check-input mx-auto mb-2" type="radio" name="responseStyle" id="styleAssertive" value="assertive">
+                      <label class="form-check-label fw-semibold small d-block" for="styleAssertive">Assertive</label>
+                      <span class="text-secondary" style="font-size: 0.75rem;">Clear & decisive tone</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-3">
+                    <div class="form-check card p-3 h-100 border text-center" style="border-color: var(--border-color) !important;">
+                      <input class="form-check-input mx-auto mb-2" type="radio" name="responseStyle" id="styleDetailed" value="detailed">
+                      <label class="form-check-label fw-semibold small d-block" for="styleDetailed">Detailed</label>
+                      <span class="text-secondary" style="font-size: 0.75rem;">Comprehensive guidance</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <button type="submit" class="btn-primary-custom" id="saveCustomizationBtn">
+                <i class="bi bi-check-lg"></i> Save Customization
+              </button>
+              <button type="button" class="btn-secondary-custom" id="resetAllCustomizationBtn">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset All Customization
+              </button>
+            </div>
+
+            <div id="customizationFeedback" class="sidebar-status-msg mt-3 d-none">
+              <!-- Dynamic feedback message -->
+            </div>
+          </form>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle CDN (Includes Popper for Dropdowns) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Application Main JS (ES Module) -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
+

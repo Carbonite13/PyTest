@@ -1,0 +1,64 @@
+/* ==========================================================================
+   Design Tokens & CSS Variables (Burgundy & Blush Workspace Theme)
+   ========================================================================== */
+
+:root {
+  /* Sidebar Palette - Deep Burgundy Dark Surface */
+  --bg-sidebar: #381C2B;            /* Deep Burgundy */
+  --bg-sidebar-hover: #4A283C;      /* Lighter Burgundy Hover */
+  --bg-sidebar-active: #542E44;     /* Lighter Burgundy Active Surface */
+  --border-sidebar: #4D2B3F;        /* Subtle Sidebar Border */
+
+  /* Main Workspace Palette - Warm Rose White Base */
+  --bg-body: #FBF6F7;               /* Warm Rose White */
+  --bg-surface: #FFFFFF;            /* Pure White Surfaces */
+  --bg-hover: #F7EFF2;              /* Soft Rose Tint Hover */
+  --bg-active: #F0E2E7;             /* Soft Rose Active Surface */
+
+  /* Primary Interactive Elements - Rich Berry */
+  --color-primary: #A43D62;         /* Rich Berry */
+  --color-primary-hover: #8B3251;   /* Rich Berry Dark Hover */
+  --color-primary-light: #F8EBEF;   /* Soft Berry Light Tint */
+  --color-primary-border: #E8BFCD;  /* Soft Berry Light Border */
+
+  /* Secondary Accents - Soft Blush */
+  --color-accent-blush: #E9A0A8;    /* Soft Blush */
+  --color-accent-blush-light: #FDF2F4;
+  --color-accent-blush-border: #F3C7CD;
+
+  /* Typography Colors - Main Content */
+  --text-primary: #352430;          /* Deep Charcoal Plum */
+  --text-secondary: #897681;        /* Muted Mauve */
+  --text-muted: #A3939E;            /* Soft Muted Mauve */
+
+  /* Typography Colors - Sidebar Specific (High Contrast) */
+  --text-sidebar-primary: #FAF2F5;  /* Warm Off-White */
+  --text-sidebar-secondary: #D9C3CE;/* Soft Blush Tint */
+  --text-sidebar-muted: #A38C98;    /* Muted Sidebar Mauve */
+
+  /* Borders & Dividers */
+  --border-color: #E9DDE2;          /* Soft Rose Border */
+  --border-color-subtle: #F3EBF0;
+  --border-color-hover: #D8C2CC;
+
+  /* Typography System */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Layout Dimensions */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+
+  /* Border Radii - Restrained & Refined */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Soft Elevation Shadows */
+  --shadow-sm: 0 1px 3px rgba(53, 36, 48, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 10px -2px rgba(53, 36, 48, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 12px 24px -4px rgba(53, 36, 48, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+
+  /* Micro Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
