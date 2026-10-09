@@ -79,7 +79,7 @@ export class WebRTCClient {
       this.mediaRecorder.ondataavailable = async (event) => {
         if (event.data && event.data.size > 0 && this.roomId && this.peerId) {
           try {
-            const url = `${this.baseUrl}/rtc/rooms/${this.roomId}/peers/${this.peerId}/audio`;
+            const url = `${this.baseUrl}/rtc/sessions/${this.roomId}/peers/${this.peerId}/audio`;
             await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'audio/webm' },

@@ -88,12 +88,6 @@
           <span class="fw-medium fs-6 text-primary d-none d-md-inline" id="headerPageTitle">Home</span>
         </div>
 
-        <!-- Search Input in Header -->
-        <div class="header-search-container">
-          <i class="bi bi-search header-search-icon"></i>
-          <input type="text" class="header-search-input" placeholder="Search workspace..." aria-label="Search workspace">
-        </div>
-
         <!-- Right Header Items: Quick Theme Toggle & Profile Avatar -->
         <div class="d-flex align-items-center gap-3">
           <!-- Quick Theme Toggle Button -->
@@ -143,11 +137,6 @@
           <section class="hero-section">
             <div class="row align-items-center gy-4">
               <div class="col-lg-8">
-                <div class="mb-2">
-                  <span class="status-badge-editorial">
-                    <i class="bi bi-stars"></i> Smart Conversation Assistant
-                  </span>
-                </div>
                 <h1 class="display-6 fw-semibold mb-3">
                   Streamline conversations with intelligent organization.
                 </h1>
@@ -169,8 +158,7 @@
           <!-- Feature Highlights Section -->
           <section class="mt-4">
             <div class="d-flex align-items-center justify-content-between mb-3">
-              <h2 class="fs-5 fw-semibold mb-0">Intended Capabilities</h2>
-              <span class="small text-muted">Core Platform Objectives</span>
+              <h2 class="fs-5 fw-semibold mb-0">Capabilities</h2>
             </div>
 
             <div class="row g-4">
@@ -322,6 +310,54 @@
                     <!-- Dynamic feedback message -->
                   </div>
                 </form>
+              </div>
+
+              <!-- Pre-Join Audio & Video Options Card -->
+              <div class="card border p-4 shadow-sm mb-4 d-none" id="preJoinCard" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+                  <div>
+                    <h2 class="fs-4 fw-semibold mb-1">Pre-Join Setup</h2>
+                    <p class="text-secondary small mb-0">Configure your audio and video settings for <span class="fw-semibold text-primary" id="preJoinRoomCodeLabel"></span></p>
+                  </div>
+                </div>
+
+                <!-- Video / Camera Preview Area -->
+                <div class="mb-4">
+                  <div class="video-stream-box position-relative rounded overflow-hidden bg-dark d-flex align-items-center justify-content-center" style="aspect-ratio: 16/9; max-height: 280px; border: 1px solid var(--border-color);">
+                    <video id="preJoinVideo" autoplay playsinline muted class="w-100 h-100 object-fit-cover d-none"></video>
+                    <div id="preJoinCameraOffPlaceholder" class="text-center p-4">
+                      <i class="bi bi-camera-video-off fs-1 text-secondary mb-2 d-block"></i>
+                      <span class="text-secondary small">Camera Off</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Audio & Video Toggle Controls -->
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                  <button type="button" class="btn btn-secondary-custom d-flex align-items-center gap-2 flex-grow-1 justify-content-center py-2" id="preJoinToggleMicBtn">
+                    <i class="bi bi-mic-mute-fill" id="preJoinMicIcon"></i>
+                    <span id="preJoinMicStatusText">Microphone Off</span>
+                  </button>
+
+                  <button type="button" class="btn btn-secondary-custom d-flex align-items-center gap-2 flex-grow-1 justify-content-center py-2" id="preJoinToggleCamBtn">
+                    <i class="bi bi-camera-video-off-fill" id="preJoinCamIcon"></i>
+                    <span id="preJoinCamStatusText">Camera Off</span>
+                  </button>
+                </div>
+
+                <!-- Pre-join Actions -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3 border-top">
+                  <button type="button" class="btn btn-secondary-custom" id="preJoinCancelBtn">
+                    <i class="bi bi-arrow-left"></i> Back / Cancel
+                  </button>
+                  <button type="button" class="btn-primary-custom" id="preJoinConfirmBtn">
+                    <i class="bi bi-box-arrow-in-right"></i> Join Conversation
+                  </button>
+                </div>
+
+                <div id="preJoinFeedback" class="sidebar-status-msg mt-3 d-none">
+                  <!-- Dynamic feedback message -->
+                </div>
               </div>
 
               <!-- Active Video Conferencing Interface -->
@@ -565,6 +601,61 @@
                       </div>
                     </div>
                   </div>
+            </div>
+
+            <!-- Your Role Card Section -->
+            <div class="card border p-4 shadow-sm mt-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="feature-icon-wrapper mb-0" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                  <i class="bi bi-person-badge"></i>
+                </div>
+                <div>
+                  <h2 class="fs-5 fw-semibold mb-1">Your Role</h2>
+                  <p class="text-secondary small mb-0">Describe your role in conversations and what key points or evaluation criteria you want the assistant to focus on.</p>
+                </div>
+              </div>
+
+              <!-- Multiline Role Description Entry -->
+              <div class="mb-3">
+                <label for="userRoleDescription" class="form-label small fw-medium text-secondary">Role Description & Evaluation Objectives</label>
+                <textarea class="form-control" id="userRoleDescription" rows="3" placeholder="e.g. I am an investor evaluating startup pitches. I want to understand the business model, revenue potential, major risks, financial requirements, and investment opportunities."></textarea>
+              </div>
+
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <button type="button" class="btn-primary-custom" id="saveUserRoleBtn">
+                  <i class="bi bi-check-lg"></i> Save Role Description
+                </button>
+                <button type="button" class="btn-secondary-custom d-none" id="editUserRoleBtn">
+                  <i class="bi bi-pencil"></i> Edit Description
+                </button>
+                <button type="button" class="btn-secondary-custom d-none" id="cancelUserRoleBtn">
+                  <i class="bi bi-x-lg"></i> Cancel
+                </button>
+              </div>
+
+              <div id="userRoleFeedback" class="sidebar-status-msg mt-2 mb-3 d-none">
+                <!-- Role description feedback -->
+              </div>
+
+              <!-- Returned Evaluation Points List Section -->
+              <div class="pt-3 border-top" id="rolePointsSection">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                  <div>
+                    <h3 class="fs-6 fw-semibold mb-1">Key Evaluation Points</h3>
+                    <p class="text-secondary small mb-0">Extracted focus points and criteria for your specified role.</p>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-secondary-custom" id="addRolePointBtn">
+                    <i class="bi bi-plus-lg"></i> Add Point
+                  </button>
+                </div>
+
+                <!-- Points Items List -->
+                <div id="rolePointsList" class="d-flex flex-column gap-2">
+                  <!-- Rendered dynamically by JS -->
+                </div>
+
+                <div id="rolePointsStatus" class="sidebar-status-msg status-empty mt-3 d-none">
+                  <!-- Points status message -->
                 </div>
               </div>
             </div>
@@ -625,55 +716,8 @@
                     </button>
                   </div>
 
-                  <div class="row g-3">
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_key_points" checked>
-                        <label class="form-check-label small fw-medium text-primary" for="priority_key_points">Key discussion points</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_decisions" checked>
-                        <label class="form-check-label small fw-medium text-primary" for="priority_decisions">Decisions & agreements</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_tasks" checked>
-                        <label class="form-check-label small fw-medium text-primary" for="priority_tasks">Tasks & commitments</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_deadlines" checked>
-                        <label class="form-check-label small fw-medium text-primary" for="priority_deadlines">Deadlines & timelines</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_risks">
-                        <label class="form-check-label small fw-medium text-primary" for="priority_risks">Risks, objections, & concerns</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_budgets">
-                        <label class="form-check-label small fw-medium text-primary" for="priority_budgets">Costs & budgets</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_questions">
-                        <label class="form-check-label small fw-medium text-primary" for="priority_questions">Unanswered questions</label>
-                      </div>
-                    </div>
-                    <div class="col-12 col-sm-6">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="priority_opportunities" checked>
-                        <label class="form-check-label small fw-medium text-primary" for="priority_opportunities">Opportunities & next steps</label>
-                      </div>
-                    </div>
+                  <div class="row g-3" id="prioritiesContainer">
+                    <!-- Dynamically rendered from priorities array of objects -->
                   </div>
                 </div>
               </div>
