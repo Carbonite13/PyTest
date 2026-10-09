@@ -98,9 +98,8 @@ class RoomManager:
         logger.info(f"Peer unregistered: {peer_id} (was in room={room_id})")
         return room_id
 
-    # ── Room lifecycle ─────────────────────────────────────────
-
-    # ── Room lifecycle & Privacy Admission ──────────────────────────────
+    # Room lifecycle
+    # Room lifecycle & Privacy Admission 
 
     def join_room(self, peer_id: str, room_id: str, display_name: Optional[str] = None) -> Room:
         """

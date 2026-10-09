@@ -394,18 +394,69 @@ function initMeetingControls() {
   }
 
   if (aroundTableCard && jumpOptionFeedback) {
-    aroundTableCard.addEventListener('click', () => {
+    aroundTableCard.addEventListener('click', async () => {
       jumpOptionFeedback.classList.remove('d-none');
       jumpOptionFeedback.className = 'sidebar-status-msg status-empty mt-4';
       jumpOptionFeedback.replaceChildren();
-
+      
       const icon = document.createElement('i');
-      icon.className = 'bi bi-info-circle';
+      icon.className = 'spinner-border spinner-border-sm me-2';
       const span = document.createElement('span');
-      span.textContent = '"Around the Table" local multi-peer session ready.';
-
+      span.textContent = 'Creating new meeting session...';
+      
       jumpOptionFeedback.appendChild(icon);
       jumpOptionFeedback.appendChild(span);
+
+      try {
+        if (!rtcClient) {
+          rtcClient = new WebRTCClient({ baseUrl: API_CONFIG.BASE_URL });
+          const localPeerId = await rtcClient.connectSignaling();
+          // Store peer_id on rtcClient
+          rtcClient.peerId = localPeerId;
+        }
+
+        const res = await fetch(`${API_CONFIG.BASE_URL}/rtc/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_peer_id: rtcClient.peerId,
+            host_display_name: appState.account.displayName
+          })
+        });
+
+        if (!res.ok) throw new Error('Failed to create session');
+        
+        const data = await res.json();
+        const session = data.session;
+        
+        // Hide start view, go to preJoinCard
+        const startMeetingView = document.getElementById('startMeetingView');
+        if (startMeetingView) startMeetingView.classList.add('d-none');
+        if (preJoinCard) preJoinCard.classList.remove('d-none');
+
+        // Store session info globally or on the UI
+        globeCodeInput.dataset.sessionId = session.session_id;
+        globeCodeInput.dataset.meetingCode = session.meeting_code;
+        globeCodeInput.dataset.isHost = 'true';
+        
+        if (preJoinRoomCodeLabel) preJoinRoomCodeLabel.textContent = `Meeting Code: ${session.meeting_code}`;
+        
+        // Reset pre-join settings
+        preJoinMicOn = false;
+        preJoinCamOn = false;
+        updatePreJoinMicUI();
+        updatePreJoinCamUI();
+        
+      } catch (err) {
+        jumpOptionFeedback.className = 'sidebar-status-msg status-error mt-4';
+        jumpOptionFeedback.replaceChildren();
+        const errIcon = document.createElement('i');
+        errIcon.className = 'bi bi-exclamation-triangle-fill';
+        const errSpan = document.createElement('span');
+        errSpan.textContent = 'Could not create meeting. ' + err.message;
+        jumpOptionFeedback.appendChild(errIcon);
+        jumpOptionFeedback.appendChild(errSpan);
+      }
     });
   }
 
@@ -479,38 +530,66 @@ function initMeetingControls() {
 
   // Room Code Form Submit -> Opens Pre-Join Screen if Valid Code
   if (aroundGlobeForm && globeCodeInput) {
-    aroundGlobeForm.addEventListener('submit', (e) => {
+    aroundGlobeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const roomId = globeCodeInput.value.trim();
+      const code = globeCodeInput.value.trim();
 
-      if (!roomId) {
-        if (globeFeedback) {
-          globeFeedback.classList.remove('d-none');
-          globeFeedback.className = 'sidebar-status-msg status-error mt-3';
-          globeFeedback.replaceChildren();
-          const icon = document.createElement('i');
-          icon.className = 'bi bi-exclamation-triangle-fill';
-          const span = document.createElement('span');
-          span.textContent = 'Please enter a conversation code or link before joining.';
-          globeFeedback.appendChild(icon);
-          globeFeedback.appendChild(span);
-        }
+      if (!code) {
+        showGlobeError('Please enter a meeting code before joining.');
         return;
       }
 
-      if (globeFeedback) globeFeedback.classList.add('d-none');
+      if (globeFeedback) {
+        globeFeedback.classList.remove('d-none');
+        globeFeedback.className = 'sidebar-status-msg status-empty mt-3';
+        globeFeedback.textContent = 'Verifying meeting code...';
+      }
 
-      // Open Pre-Join Card with room ID preserved
-      if (preJoinRoomCodeLabel) preJoinRoomCodeLabel.textContent = roomId;
-      if (webrtcJoinCard) webrtcJoinCard.classList.add('d-none');
-      if (preJoinCard) preJoinCard.classList.remove('d-none');
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/rtc/sessions/by-code/${code}`);
+        if (!res.ok) {
+          if (res.status === 404) throw new Error('Meeting not found.');
+          if (res.status === 410) throw new Error('This meeting has already ended.');
+          throw new Error('Error verifying meeting.');
+        }
+        
+        const session = await res.json();
+        if (globeFeedback) globeFeedback.classList.add('d-none');
+        
+        // Store session info
+        globeCodeInput.dataset.sessionId = session.session_id;
+        globeCodeInput.dataset.meetingCode = session.meeting_code;
+        globeCodeInput.dataset.isHost = 'false';
 
-      // Reset pre-join settings to defaults: Mic Off, Cam Off
-      preJoinMicOn = false;
-      preJoinCamOn = false;
-      updatePreJoinMicUI();
-      updatePreJoinCamUI();
+        // Open Pre-Join Card with room ID preserved
+        if (preJoinRoomCodeLabel) preJoinRoomCodeLabel.textContent = `Room: ${session.meeting_code}`;
+        if (webrtcJoinCard) webrtcJoinCard.classList.add('d-none');
+        if (preJoinCard) preJoinCard.classList.remove('d-none');
+
+        // Reset pre-join settings to defaults: Mic Off, Cam Off
+        preJoinMicOn = false;
+        preJoinCamOn = false;
+        updatePreJoinMicUI();
+        updatePreJoinCamUI();
+
+      } catch (err) {
+        showGlobeError(err.message);
+      }
     });
+  }
+
+  function showGlobeError(msg) {
+    if (globeFeedback) {
+      globeFeedback.classList.remove('d-none');
+      globeFeedback.className = 'sidebar-status-msg status-error mt-3';
+      globeFeedback.replaceChildren();
+      const icon = document.createElement('i');
+      icon.className = 'bi bi-exclamation-triangle-fill';
+      const span = document.createElement('span');
+      span.textContent = msg;
+      globeFeedback.appendChild(icon);
+      globeFeedback.appendChild(span);
+    }
   }
 
   // Pre-join Cancel / Back Button -> Return to Code Entry Card with code preserved
@@ -526,8 +605,9 @@ function initMeetingControls() {
   // Pre-join Confirm Button ("Join Conversation")
   if (preJoinConfirmBtn && globeCodeInput) {
     preJoinConfirmBtn.addEventListener('click', async () => {
-      const roomId = globeCodeInput.value.trim();
-      if (!roomId) return;
+      const sessionId = globeCodeInput.dataset.sessionId;
+      const meetingCode = globeCodeInput.dataset.meetingCode;
+      if (!sessionId) return;
 
       stopPreJoinPreviewStream();
 
@@ -538,26 +618,89 @@ function initMeetingControls() {
           preJoinFeedback.textContent = 'Connecting to WebRTC meeting session...';
         }
 
-        // Initialize WebRTC client
-        rtcClient = new WebRTCClient({
-          baseUrl: API_CONFIG.BASE_URL,
-          onStatusChange: (statusText) => {
-            if (webrtcStatusLabel) webrtcStatusLabel.textContent = `Status: ${statusText}`;
-          },
-          onPeerJoined: (peerId) => {
-            updatePeerCountBadge();
-          },
-          onPeerLeft: (peerId) => {
-            removeRemoteVideoTile(peerId);
-            updatePeerCountBadge();
-          },
-          onRemoteTrack: (peerId, stream) => {
-            addOrUpdateRemoteVideoTile(peerId, stream);
-          },
-          onError: (errMsg) => {
-            console.warn('WebRTC Error:', errMsg);
+        const admissionContainer = document.getElementById('admissionRequestsContainer');
+        if (admissionContainer) admissionContainer.replaceChildren();
+
+        // Initialize WebRTC client if not already connected
+        if (!rtcClient) {
+          rtcClient = new WebRTCClient({ baseUrl: API_CONFIG.BASE_URL });
+        }
+        
+        // Setup callbacks
+        rtcClient.onStatusChange = (statusText) => {
+          if (webrtcStatusLabel) webrtcStatusLabel.textContent = `Status: ${statusText}`;
+        };
+        rtcClient.onPeerJoined = (peerId) => {
+          updatePeerCountBadge();
+        };
+        rtcClient.onPeerLeft = (peerId) => {
+          removeRemoteVideoTile(peerId);
+          updatePeerCountBadge();
+        };
+        rtcClient.onRemoteTrack = (peerId, stream) => {
+          addOrUpdateRemoteVideoTile(peerId, stream);
+        };
+        rtcClient.onError = (errMsg) => {
+          console.warn('WebRTC Error:', errMsg);
+          if (preJoinFeedback) {
+            preJoinFeedback.classList.remove('d-none');
+            preJoinFeedback.className = 'sidebar-status-msg status-error mt-3';
+            preJoinFeedback.textContent = 'Error: ' + errMsg;
           }
-        });
+        };
+        rtcClient.onWaitingForHost = () => {
+          if (webrtcStatusLabel) webrtcStatusLabel.textContent = 'Waiting for host admission...';
+        };
+        rtcClient.onJoinRequest = (peerEvent) => {
+          // Show admit/reject UI for host
+          const reqDiv = document.createElement('div');
+          reqDiv.className = 'd-flex align-items-center justify-content-between bg-dark bg-opacity-50 p-2 rounded border border-secondary';
+          reqDiv.id = `join-req-${peerEvent.peer_id}`;
+          reqDiv.innerHTML = `
+            <span class="text-light small"><i class="bi bi-person-fill"></i> ${peerEvent.peer_id} wants to join</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-success py-0" id="admit-${peerEvent.peer_id}">Admit</button>
+              <button class="btn btn-sm btn-danger py-0" id="reject-${peerEvent.peer_id}">Reject</button>
+            </div>
+          `;
+          if (admissionContainer) {
+            admissionContainer.appendChild(reqDiv);
+            document.getElementById(`admit-${peerEvent.peer_id}`).addEventListener('click', () => {
+              rtcClient.admitPeer(peerEvent.peer_id);
+              reqDiv.remove();
+            });
+            document.getElementById(`reject-${peerEvent.peer_id}`).addEventListener('click', () => {
+              rtcClient.rejectPeer(peerEvent.peer_id);
+              reqDiv.remove();
+            });
+          }
+        };
+        rtcClient.onJoinRejected = (msg) => {
+          if (webrtcStatusLabel) webrtcStatusLabel.textContent = 'Rejected by host';
+          if (preJoinFeedback) {
+            preJoinFeedback.classList.remove('d-none');
+            preJoinFeedback.className = 'sidebar-status-msg status-error mt-3';
+            preJoinFeedback.textContent = msg;
+          }
+        };
+        rtcClient.onSessionEnded = (msg) => {
+          alert('Meeting has ended: ' + msg);
+          cleanupAndLeave();
+        };
+        rtcClient.onRoomInfo = (info) => {
+          if (conferenceRoomTitle) {
+            conferenceRoomTitle.textContent = `Room: ${meetingCode}`;
+          }
+          const meetingCodeDisplay = document.getElementById('meetingCodeDisplay');
+          const meetingCodeText = document.getElementById('meetingCodeText');
+          if (meetingCodeDisplay && meetingCodeText) {
+            meetingCodeText.textContent = meetingCode;
+            meetingCodeDisplay.style.display = 'block';
+          }
+          if (preJoinCard) preJoinCard.classList.add('d-none');
+          if (videoConferenceInterface) videoConferenceInterface.classList.remove('d-none');
+          updatePeerCountBadge();
+        };
 
         // 1. Acquire local stream with pre-join mic and camera states
         const stream = await rtcClient.startLocalStream({ audio: preJoinMicOn, video: preJoinCamOn });
@@ -575,9 +718,11 @@ function initMeetingControls() {
           if (stream) stream.getVideoTracks().forEach(t => t.enabled = false);
         }
 
-        // 2. Connect signaling WebSocket & join room
-        await rtcClient.connectSignaling();
-        rtcClient.joinRoom(roomId);
+        // 2. Connect signaling WebSocket (if not already) & join room
+        if (!rtcClient.ws || rtcClient.ws.readyState !== WebSocket.OPEN) {
+          await rtcClient.connectSignaling();
+        }
+        rtcClient.joinRoom(sessionId);
 
         // Update In-Call Action Button UI states
         if (toggleAudioBtn) {
@@ -647,19 +792,50 @@ function initMeetingControls() {
 
   // Leave Call Button
   if (leaveCallBtn) {
-    leaveCallBtn.addEventListener('click', () => {
-      if (rtcClient) {
-        rtcClient.leaveRoom();
-        rtcClient.disconnect();
-        rtcClient = null;
+    leaveCallBtn.addEventListener('click', async () => {
+      const sessionId = globeCodeInput?.dataset?.sessionId;
+      const isHost = globeCodeInput?.dataset?.isHost === 'true';
+
+      if (isHost && sessionId) {
+        // If host, end the entire session
+        try {
+          await fetch(`${API_CONFIG.BASE_URL}/rtc/sessions/${sessionId}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error('Failed to end session', e);
+        }
       }
-      // Reset UI elements
-      if (videoConferenceInterface) videoConferenceInterface.classList.add('d-none');
-      if (webrtcJoinCard) webrtcJoinCard.classList.remove('d-none');
-      if (localVideo) localVideo.srcObject = null;
-      // Remove remote videos
-      document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
+
+      cleanupAndLeave();
     });
+  }
+
+  function cleanupAndLeave() {
+    if (rtcClient) {
+      try { rtcClient.leaveRoom(); } catch (e) {}
+      try { rtcClient.disconnect(); } catch (e) {}
+      rtcClient = null;
+    }
+    // Reset UI elements
+    if (videoConferenceInterface) videoConferenceInterface.classList.add('d-none');
+    if (webrtcJoinCard) webrtcJoinCard.classList.remove('d-none');
+    
+    // Hide meeting code display
+    const meetingCodeDisplay = document.getElementById('meetingCodeDisplay');
+    if (meetingCodeDisplay) meetingCodeDisplay.style.display = 'none';
+    
+    if (localVideo) localVideo.srcObject = null;
+    // Remove remote videos
+    document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
+    // Remove admission requests
+    const admissionContainer = document.getElementById('admissionRequestsContainer');
+    if (admissionContainer) admissionContainer.replaceChildren();
+    
+    // Clear dataset
+    if (globeCodeInput) {
+      delete globeCodeInput.dataset.sessionId;
+      delete globeCodeInput.dataset.meetingCode;
+      delete globeCodeInput.dataset.isHost;
+    }
   }
 
   function addOrUpdateRemoteVideoTile(peerId, stream) {

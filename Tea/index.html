@@ -366,6 +366,9 @@
                   <div>
                     <h2 class="fs-5 fw-semibold mb-0" id="conferenceRoomTitle">Room: -</h2>
                     <span class="small text-muted" id="webrtcStatusLabel">Status: Disconnected</span>
+                    <div class="small fw-medium text-primary mt-1" id="meetingCodeDisplay" style="display: none;">
+                      Code: <span id="meetingCodeText" class="user-select-all font-monospace px-1 rounded bg-light text-dark"></span>
+                    </div>
                   </div>
                   <span class="status-badge-editorial" id="webrtcPeerCountBadge"><i class="bi bi-people"></i> 1 Participant</span>
                 </div>
@@ -383,6 +386,9 @@
                   </div>
                   <!-- Remote Video Streams appended dynamically -->
                 </div>
+
+                <!-- Host Admission Requests Container (Dynamic) -->
+                <div id="admissionRequestsContainer" class="d-flex flex-column gap-2 mb-3"></div>
 
                 <!-- Meeting Control Bar -->
                 <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 pt-3 border-top" id="conferenceControls">

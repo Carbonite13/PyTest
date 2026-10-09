@@ -24,6 +24,13 @@ export class WebRTCClient {
     this.onRemoteTrack = options.onRemoteTrack || (() => {});
     this.onStatusChange = options.onStatusChange || (() => {});
     this.onError = options.onError || (() => {});
+    
+    // Admission control callbacks
+    this.onWaitingForHost = options.onWaitingForHost || (() => {});
+    this.onJoinRequest = options.onJoinRequest || (() => {});
+    this.onJoinRejected = options.onJoinRejected || (() => {});
+    this.onSessionEnded = options.onSessionEnded || (() => {});
+    this.onRoomInfo = options.onRoomInfo || (() => {});
   }
 
   /**
@@ -169,6 +176,36 @@ export class WebRTCClient {
   }
 
   /**
+   * Admit a waiting peer
+   */
+  admitPeer(targetId) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'admit_peer',
+        admission: {
+          target_peer_id: targetId,
+          room_id: this.roomId
+        }
+      }));
+    }
+  }
+
+  /**
+   * Reject a waiting peer
+   */
+  rejectPeer(targetId) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'reject_peer',
+        admission: {
+          target_peer_id: targetId,
+          room_id: this.roomId
+        }
+      }));
+    }
+  }
+
+  /**
    * Handle incoming WebSocket messages from the signaling server
    */
   async handleSignalingMessage(msg) {
@@ -177,6 +214,35 @@ export class WebRTCClient {
     switch (msg.type) {
       case 'welcome':
         console.log(`[WebRTC] Registered as Peer ID: ${msg.peer_id}`);
+        break;
+
+      case 'waiting_for_host':
+        console.log('[WebRTC] Waiting for host to admit');
+        this.onStatusChange('Waiting for host admission...');
+        this.onWaitingForHost();
+        break;
+
+      case 'join_request_recvd':
+        console.log(`[WebRTC] Join request from ${msg.peer_event.peer_id}`);
+        this.onJoinRequest(msg.peer_event);
+        break;
+
+      case 'join_rejected':
+        console.log(`[WebRTC] Join rejected: ${msg.message}`);
+        this.onStatusChange('Join request rejected by host');
+        this.onJoinRejected(msg.message);
+        break;
+
+      case 'room_info':
+        console.log(`[WebRTC] Joined room successfully`);
+        this.onStatusChange('Connected to room');
+        this.onRoomInfo(msg);
+        break;
+
+      case 'session_ended':
+        console.log(`[WebRTC] Session ended by host`);
+        this.onStatusChange('Session ended by host');
+        this.onSessionEnded(msg.message);
         break;
 
       case 'peer_joined':
