@@ -47,6 +47,10 @@ def create_app(config: Settings) -> FastAPI:
     tea_dir = Path(config.app_root) / "Tea"
     if tea_dir.exists():
         logger.info(f"Mounting static files from {tea_dir}")
+        for subfolder in ["css", "js", "assets", "vendors"]:
+            subpath = tea_dir / subfolder
+            if subpath.exists():
+                app.mount(f"/{subfolder}", StaticFiles(directory=str(subpath)), name=subfolder)
         app.mount("/static", StaticFiles(directory=str(tea_dir)), name="static")
 
     return app
