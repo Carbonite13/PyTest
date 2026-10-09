@@ -1,7 +1,7 @@
 # WebRTC Signaling — Endpoint Documentation
 
 ## REST Endpoints
-HTTP endpoints for room discovery and ICE server configuration.
+HTTP endpoints for WebRTC config and Session lifecycle. See `endpoints.md` for a complete list.
 
 ### GET `/rtc/ice-servers`
 Request: {}
@@ -20,43 +20,31 @@ Error Response: {
     "message": ""
 }
 
-### GET `/rtc/rooms`
+### GET `/rtc/sessions`
 Request: {}
 Response: {
-    "rooms": [
+    "count": 1,
+    "sessions": [
         {
-            "room_id": "my-meeting",
-            "peer_count": 2,
-            "peers": [
-                {"peer_id": "a1b2c3d4e5f6", "display_name": "Alice"},
-                {"peer_id": "f6e5d4c3b2a1", "display_name": "Bob"}
-            ]
+            "session_id": "abc123def456",
+            "meeting_code": "3K7-AB2-Q9R",
+            "host_peer_id": "a1b2c3d4e5f6",
+            "host_display_name": "Alice",
+            "status": "active",
+            "participant_count": 2,
+            "created_at": "...",
+            "started_at": "...",
+            "ended_at": null
         }
     ]
 }
 Status Codes: [200]
-Error Response: {
-    "status": "error",
-    "message": ""
-}
 
-### GET `/rtc/rooms/{room_id}`
-Request: {}
-Response: {
-    "room_id": "my-meeting",
-    "peer_count": 2,
-    "peers": [
-        {"peer_id": "a1b2c3d4e5f6", "display_name": "Alice"}
-    ],
-    "ice_servers": [
-        {"urls": ["stun:stun.l.google.com:19302"], "username": null, "credential": null}
-    ]
-}
-Status Codes: [200, 404]
-Error Response: {
-    "status": "error",
-    "message": "Room 'xyz' not found"
-}
+### GET `/rtc/sessions/{session_id}`
+Returns similar structure for a specific session. Status Codes: [200, 404]
+
+### GET `/rtc/sessions/by-code/{meeting_code}`
+Resolves a human-readable meeting code to a session. Status Codes: [200, 404, 410 (Ended)]
 
 ## WebSocket Signaling Endpoint
 Real-time signaling channel for WebRTC peer-to-peer connection negotiation.
@@ -228,3 +216,82 @@ Error Response: {
     "status": "error",
     "message": ""
 }
+
+---
+
+## Session Privacy & Host Admission Control
+
+### Session Host Allocation
+- The first peer joining a room becomes the **Meeting Host** (`host_peer_id`).
+- When a new peer attempts to join an existing room, they are placed in a **Waiting Room** queue.
+
+### Admission Signals
+
+#### Server → Host: `join_request_recvd`
+Sent to the host when a peer is waiting to join.
+```json
+{
+    "type": "join_request_recvd",
+    "peer_event": {
+        "peer_id": "f6e5d4c3b2a1",
+        "display_name": "Bob",
+        "room_id": "abc123def456"
+    }
+}
+```
+
+#### Host → Server: `admit_peer`
+Host approves entry for a waiting peer.
+```json
+{
+    "type": "admit_peer",
+    "admission": {
+        "target_peer_id": "f6e5d4c3b2a1",
+        "room_id": "abc123def456"
+    }
+}
+```
+
+#### Host → Server: `reject_peer`
+Host denies entry for a waiting peer.
+```json
+{
+    "type": "reject_peer",
+    "admission": {
+        "target_peer_id": "f6e5d4c3b2a1",
+        "room_id": "abc123def456"
+    }
+}
+```
+
+#### Server → Client: `join_rejected`
+Sent to the waiting peer if the host rejects them.
+```json
+{
+    "type": "join_rejected",
+    "room_id": "abc123def456",
+    "message": "Host rejected your request to join the meeting."
+}
+```
+
+#### Server → Room: `session_ended`
+Broadcast when the host explicitly calls the REST `DELETE /rtc/sessions/{session_id}` endpoint.
+```json
+{
+    "type": "session_ended",
+    "session_id": "abc123def456",
+    "ended_by": "a1b2c3d4e5f6",
+    "message": "The meeting host has ended this session."
+}
+```
+
+---
+
+## Audio Stream Ingestion & Session-Based Transcription Logging
+
+### Speech-to-Text Processing Pipeline ([`Pot/core/audio_pipeline.py`](file:///home/datura/Desktop/PyTest/Pot/core/audio_pipeline.py))
+- **`SpeechToTextEngine`**: Modular STT processor converting raw audio frames (`audio/webm`) into structured transcript entries.
+- **`SessionTranscriptLogger`**: Session-level file logger. Creates and appends transcripts to a single meeting log file:
+  `log_audio_[session_id]_[time]_transcript.log` (e.g. `logs/log_audio_abc123def456_20261009_223334_transcript.log`).
+- **REST Ingestion**: Clients push chunks to `POST /rtc/sessions/{session_id}/peers/{peer_id}/audio`.
+- **Live Stream (SSE)**: Broadcasts transcribed speech events out to external API subscribers on `GET /rtc/sessions/{session_id}/audio-stream`.
