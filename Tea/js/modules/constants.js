@@ -19,6 +19,6 @@ export const API_CONFIG = {
 // UI State Messages for Dynamic Rendering
 export const UI_MESSAGES = {
   LOADING_HISTORY: 'Loading history...',
-  EMPTY_HISTORY: 'No history fetched',
+  EMPTY_HISTORY: 'No conversations',
   ERROR_HISTORY: 'Unable to load conversation history.'
 };
