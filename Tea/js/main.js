@@ -5,6 +5,7 @@
 
 import { API_CONFIG, UI_MESSAGES } from './modules/constants.js';
 import { WebRTCClient } from './modules/webrtcClient.js';
+import { BrowserSpeechRecognitionAdapter } from './modules/transcription.js';
 
 let rtcClient = null;
 
@@ -380,6 +381,11 @@ function initMeetingControls() {
   const toggleVideoBtn = document.getElementById('toggleVideoBtn');
   const videoBtnIcon = document.getElementById('videoBtnIcon');
   const leaveCallBtn = document.getElementById('leaveCallBtn');
+  const toggleTranscriptionBtn = document.getElementById('toggleTranscriptionBtn');
+  const transcriptionBtnIcon = document.getElementById('transcriptionBtnIcon');
+  const transcriptionStatus = document.getElementById('transcriptionStatus');
+  const transcriptEvents = document.getElementById('transcriptEvents');
+  const partialTranscriptLines = new Map();
 
   let preJoinMicOn = false; // Default: muted / off
   let preJoinCamOn = false; // Default: camera off
@@ -438,6 +444,7 @@ function initMeetingControls() {
         globeCodeInput.dataset.sessionId = session.session_id;
         globeCodeInput.dataset.meetingCode = session.meeting_code;
         globeCodeInput.dataset.isHost = 'true';
+        globeCodeInput.dataset.hostToken = data.host_token;
         
         if (preJoinRoomCodeLabel) preJoinRoomCodeLabel.textContent = `Meeting Code: ${session.meeting_code}`;
         
@@ -640,6 +647,22 @@ function initMeetingControls() {
         rtcClient.onRemoteTrack = (peerId, stream) => {
           addOrUpdateRemoteVideoTile(peerId, stream);
         };
+        rtcClient.onTranscript = (event) => {
+          if (!transcriptEvents || !event) return;
+          if (transcriptEvents.textContent === 'No transcript events yet.') transcriptEvents.replaceChildren();
+          const key = `${event.participant_id}:${event.session_id}:${event.sequence_number}`;
+          const existingPartial = partialTranscriptLines.get(key);
+          if (event.event_type === 'final' && existingPartial) {
+            existingPartial.remove();
+            partialTranscriptLines.delete(key);
+          }
+          const line = existingPartial && event.event_type === 'partial' ? existingPartial : document.createElement('div');
+          line.className = event.event_type === 'partial' ? 'text-secondary fst-italic' : 'text-light';
+          line.textContent = `${event.participant_id === rtcClient.peerId ? 'You' : event.participant_id.slice(0, 6)}: ${event.text || event.event_type}`;
+          if (!line.parentElement) transcriptEvents.appendChild(line);
+          if (event.event_type === 'partial') partialTranscriptLines.set(key, line);
+          while (transcriptEvents.children.length > 100) transcriptEvents.firstElementChild.remove();
+        };
         rtcClient.onError = (errMsg) => {
           console.warn('WebRTC Error:', errMsg);
           if (preJoinFeedback) {
@@ -722,7 +745,10 @@ function initMeetingControls() {
         if (!rtcClient.ws || rtcClient.ws.readyState !== WebSocket.OPEN) {
           await rtcClient.connectSignaling();
         }
-        rtcClient.joinRoom(sessionId);
+        rtcClient.joinRoom(sessionId, {
+          hostToken: globeCodeInput.dataset.isHost === 'true' ? globeCodeInput.dataset.hostToken : null,
+          displayName: appState.account.displayName
+        });
 
         // Update In-Call Action Button UI states
         if (toggleAudioBtn) {
@@ -747,11 +773,22 @@ function initMeetingControls() {
         // Update UI View State
         if (preJoinCard) preJoinCard.classList.add('d-none');
         if (videoConferenceInterface) videoConferenceInterface.classList.remove('d-none');
-        if (conferenceRoomTitle) conferenceRoomTitle.textContent = `Room: ${roomId}`;
+        if (conferenceRoomTitle) conferenceRoomTitle.textContent = `Room: ${meetingCode}`;
         updatePeerCountBadge();
 
       } catch (err) {
         console.error('Failed to start WebRTC session:', err);
+        if (rtcClient) {
+          try {
+            if (rtcClient.roomId) rtcClient.leaveRoom();
+            else {
+              rtcClient.localStream?.getTracks().forEach((track) => track.stop());
+              rtcClient.localStream = null;
+            }
+          } catch (cleanupError) {
+            console.warn('Failed to clean up failed join:', cleanupError);
+          }
+        }
         if (preJoinFeedback) {
           preJoinFeedback.className = 'sidebar-status-msg status-error mt-3';
           preJoinFeedback.textContent = `Joining failed: ${err.message || 'Unable to connect to meeting room.'}`;
@@ -790,6 +827,36 @@ function initMeetingControls() {
     });
   }
 
+  // Browser-native ASR is explicit opt-in. Its processing location varies by
+  // browser, so the UI exposes that limitation instead of implying offline ASR.
+  if (toggleTranscriptionBtn) {
+    toggleTranscriptionBtn.addEventListener('click', async () => {
+      if (!rtcClient) return;
+      if (rtcClient.transcription) {
+        rtcClient.stopTranscription();
+        toggleTranscriptionBtn.classList.replace('btn-warning', 'btn-outline-light');
+        if (transcriptionBtnIcon) transcriptionBtnIcon.className = 'bi bi-file-text fs-5';
+        if (transcriptionStatus) transcriptionStatus.textContent = 'Off';
+        return;
+      }
+      const adapter = new BrowserSpeechRecognitionAdapter();
+      if (!adapter.isSupported()) {
+        if (transcriptionStatus) transcriptionStatus.textContent = 'Unsupported browser';
+        return;
+      }
+      if (!window.confirm(`${adapter.privacyNotice}\n\nStart text-only transcription?`)) return;
+      rtcClient.transcriptionAdapter = adapter;
+      const started = await rtcClient.startTranscription();
+      if (started !== false) {
+        toggleTranscriptionBtn.classList.replace('btn-outline-light', 'btn-warning');
+        if (transcriptionBtnIcon) transcriptionBtnIcon.className = 'bi bi-file-text-fill fs-5';
+        if (transcriptionStatus) transcriptionStatus.textContent = 'On (browser ASR)';
+      } else if (transcriptionStatus) {
+        transcriptionStatus.textContent = 'Unavailable';
+      }
+    });
+  }
+
   // Leave Call Button
   if (leaveCallBtn) {
     leaveCallBtn.addEventListener('click', async () => {
@@ -799,7 +866,11 @@ function initMeetingControls() {
       if (isHost && sessionId) {
         // If host, end the entire session
         try {
-          await fetch(`${API_CONFIG.BASE_URL}/rtc/sessions/${sessionId}`, { method: 'DELETE' });
+          await fetch(`${API_CONFIG.BASE_URL}/rtc/sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ peer_id: rtcClient?.peerId, host_token: globeCodeInput.dataset.hostToken })
+          });
         } catch (e) {
           console.error('Failed to end session', e);
         }
@@ -824,6 +895,12 @@ function initMeetingControls() {
     if (meetingCodeDisplay) meetingCodeDisplay.style.display = 'none';
     
     if (localVideo) localVideo.srcObject = null;
+    if (transcriptEvents) {
+      transcriptEvents.replaceChildren();
+      transcriptEvents.textContent = 'No transcript events yet.';
+    }
+    partialTranscriptLines.clear();
+    if (transcriptionStatus) transcriptionStatus.textContent = 'Off';
     // Remove remote videos
     document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
     // Remove admission requests
@@ -835,6 +912,7 @@ function initMeetingControls() {
       delete globeCodeInput.dataset.sessionId;
       delete globeCodeInput.dataset.meetingCode;
       delete globeCodeInput.dataset.isHost;
+      delete globeCodeInput.dataset.hostToken;
     }
   }
 

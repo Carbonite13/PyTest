@@ -1,39 +1,87 @@
-# Backend Architecture
+# Current meeting architecture
 
-The backend of the Teapot application is built using **FastAPI** and is structured to handle real-time WebRTC signaling, meeting session lifecycle management, privacy controls, and audio stream ingestion.
+The repository implements a FastAPI signaling relay and browser peer-to-peer
+media. FastAPI does not receive, decode, mix, or transcribe microphone audio.
 
-## Core Services
+```mermaid
+flowchart LR
+  A[Participant browser] -- local getUserMedia --> B[RTCPeerConnection]
+  C[Participant browser] -- local getUserMedia --> D[RTCPeerConnection]
+  B <--> |audio/video P2P via ICE| D
+  A <-->|authenticated WS: SDP, ICE, lifecycle, transcript text| S[FastAPI]
+  C <-->|authenticated WS: SDP, ICE, lifecycle, transcript text| S
+  S --> R[SessionManager + RoomManager]
+  S --> T[TranscriptService]
+```
 
-### 1. `SessionManager` (`Pot/core/session.py`)
-Manages the high-level business logic of meeting sessions. It abstracts away the low-level WebRTC networking.
-- **State Machine**: Tracks sessions across three states: `WAITING` -> `ACTIVE` -> `ENDED`.
-- **Session Metadata**: Stores human-readable meeting codes (e.g. `3K7-AB2-Q9R`), the host's peer ID, and a list of admitted participant IDs.
-- **Role**: This is the source of truth for whether a meeting exists, who is allowed in it, and when it terminates.
+`Pot/core/room.py` maintains in-process WebSocket peers and rooms. It relays
+SDP and ICE only between admitted peers in the same meeting. `Pot/core/session.py`
+is the meeting state machine (`waiting -> active -> ended`) and rejects joins
+after termination. Because this state is in memory, `Pot/main.py` runs one
+Uvicorn worker; a multi-instance deployment needs shared session state and
+fan-out before it is safe to scale horizontally.
 
-### 2. `RoomManager` (`Pot/core/room.py`)
-Handles the low-level, real-time WebSocket state for WebRTC signaling.
-- **Peers & Connections**: Tracks active WebSocket connections (`Peer` objects) and groups them into `Room` objects based on `session_id`.
-- **Admission Control**: Enforces privacy. When a peer requests to join a room, they are placed in `waiting_peers`. The `RoomManager` notifies the room's host, and only transitions the peer to active `peers` upon receiving an `admit` signal from the host.
-- **Message Relay**: Relays SDP offers/answers and ICE candidates efficiently between connected peers.
+## Lifecycle
 
-### 3. `AudioStreamPipeline` (`Pot/core/audio_pipeline.py`)
-Manages real-time audio ingestion and transcription.
-- **Chunk Processing**: Receives continuous audio chunks (`audio/webm`) via REST POST from clients.
-- **STT Engine**: Wraps a modular Speech-to-Text engine (`SpeechToTextEngine`) for transcribing chunks into text.
-- **Session Logging (`SessionTranscriptLogger`)**: Writes transcription logs for each session to an isolated file (`logs/log_audio_{session_id}_{timestamp}_transcript.log`).
-- **SSE Broadcasting**: Yields live transcription events via Server-Sent Events (SSE) so external consumers (AI assistants, note takers) can subscribe to the live transcript.
+```mermaid
+stateDiagram-v2
+  [*] --> waiting: POST /rtc/sessions
+  waiting --> active: host WebSocket join
+  active --> active: guest admitted / reconnect
+  waiting --> ended: host leaves or DELETE by host
+  active --> ended: host leaves or DELETE by host
+  ended --> [*]
+```
 
-## Separation of Concerns: REST vs WebSockets
+The REST create response includes a private host capability. A refreshed host
+must present it in `join.host_token`; the old socket is detached. Guests resolve
+a meeting code, connect with a new WebSocket peer ID, and remain in
+`waiting_for_host` until the active host admits them. Host departure is
+terminal, preventing stale sockets from reviving a meeting.
 
-The architecture enforces a strict boundary between REST HTTP calls and WebSocket signaling:
+All room mutations are idempotent where possible. Duplicate joins do not add a
+second participant. Disconnect cleanup removes admitted and waiting peers and is
+safe to run after an explicit `leave`.
 
-- **REST Endpoints (`sessions.py`)**: Used for one-off operations such as creating a session (which allocates a meeting code), ending a session, uploading raw audio chunks, or subscribing to SSE audio streams.
-- **WebSocket Route (`signaling.py`)**: Used strictly for rapid, bidirectional WebRTC handshakes (Join requests, Host admission control, SDP/ICE negotiation) and connection state broadcasts (e.g., peer joined/left).
+## Privacy and transcription
 
-## Privacy & Admission Flow
+The default path never uploads `MediaRecorder` data. The legacy audio upload
+endpoint returns `410 Gone`. Client ASR is isolated behind
+`Tea/js/modules/transcription.js`; the browser-native adapter is opt-in because
+browser vendors do not expose a reliable runtime guarantee that recognition is
+offline. It emits text-only versioned events over the authenticated meeting
+WebSocket. The backend validates meeting/participant identity, payload size,
+event type, timing, and duplicate IDs, then broadcasts accepted events to
+admitted subscribers. Partial events replace the prior partial for their
+participant/session/sequence; finals replace any matching partial and are the
+only committed event type.
 
-1. **Host Creates Session**: The host calls `POST /rtc/sessions` via REST. They receive a `session_id` and a `meeting_code`.
-2. **Host Joins WS**: The host connects to `/rtc/ws` and sends a `join` signal with the `session_id`. `RoomManager` registers them as the host.
-3. **Participant Joins WS**: A participant connects to `/rtc/ws` and sends a `join` signal. `RoomManager` places them in the waiting queue and alerts the host via `join_request_recvd`.
-4. **Host Admits**: The host reviews the request and sends an `admit_peer` WebSocket signal.
-5. **Sync**: `signaling.py` processes the admit signal, moves the peer from waiting to active in `RoomManager`, syncs the participant list in `SessionManager`, and broadcasts `peer_joined`.
+The current repository has no account/login provider. A WebSocket-assigned peer
+ID authenticates a live connection, meeting membership is established by host
+admission, and the host capability protects host-only operations. Deployments
+with user authentication should bind the peer ID to that identity before
+exposing the API publicly.
+
+## Operational constraints
+
+- Copy the existing `Pot/.env` settings for `PROFILE`, application paths, and
+  required database metadata; the meeting MVP itself does not open a database
+  connection.
+- Configure `STUN_SERVER`; configure `TURN_SERVER`, `TURN_USERNAME`, and
+  `TURN_CREDENTIAL` for networks where STUN cannot establish a direct path.
+- Do not run multiple workers or replicas with the current in-memory managers.
+- No FFmpeg, MoviePy, broker, media server, or server-side ASR is required.
+
+## Verification
+
+```bash
+.venv/bin/python -m pytest -q Pot/tests
+node --check Tea/js/main.js
+node --check Tea/js/modules/webrtcClient.js
+node --check Tea/js/modules/transcription.js
+```
+
+The automated tests cover lifecycle transitions, duplicate/unauthorized room
+operations, transcript partial/final semantics, and transcript identity
+binding. Real browser media, TURN traversal, and offline ASR require target
+devices and credentials that are not available in this repository environment.

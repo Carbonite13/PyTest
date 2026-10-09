@@ -6,7 +6,9 @@
 // API Configuration Constants
 export const API_CONFIG = {
   // Base URL for API requests
-  BASE_URL: 'http://10.80.0.22:9030',
+  // Empty means same-origin when the UI is served by FastAPI. Deployments can
+  // override this at build time or pass baseUrl to WebRTCClient.
+  BASE_URL: '',
   // Endpoint for retrieving past conversation history
   CONVERSATIONS_ENDPOINT: '/api/conversations',
   // Default request headers
