@@ -1,7 +1,7 @@
 """Authenticated transcript event aggregation.
 
-Audio never enters this service.  Participants run ASR locally and submit
-small, versioned transcript events over their authenticated signaling socket.
+Audio is never retained by this service. The audio-room ASR adapter submits
+small, versioned events after provider recognition.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import AsyncGenerator
 
-from Pot.schema.webrtc import TranscriptEvent, TranscriptEventType
+from Pot.schema.audio import TranscriptEvent, TranscriptEventType
 
 
 @dataclass

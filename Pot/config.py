@@ -18,13 +18,21 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    # STUN server configuration
-    stun_server: str = Field(default="stun:stun.l.google.com:19302")
-
-    # TURN server configuration (optional, for full NAT traversal)
-    turn_server: Optional[str] = Field(default=None)
-    turn_username: Optional[str] = Field(default=None)
-    turn_credential: Optional[str] = Field(default=None)
+    # Centralized audio/ASR configuration.  Audio is relayed as raw PCM to the
+    # configured provider; credentials never leave this process.
+    deepgram_api_key: Optional[str] = Field(default=None)
+    deepgram_api_url: str = Field(default="wss://api.deepgram.com/v1/listen")
+    asr_model: str = Field(default="nova-3")
+    asr_language: str = Field(default="en-US")
+    asr_sample_rate: int = Field(default=16000, ge=8000, le=48000)
+    asr_encoding: str = Field(default="linear16")
+    downstream_api_url: Optional[str] = Field(default=None)
+    downstream_api_key: Optional[str] = Field(default=None)
+    downstream_api_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    forward_interim_transcripts: bool = Field(default=False)
+    max_participants_per_room: int = Field(default=4, ge=1, le=32)
+    audio_packet_bytes: int = Field(default=640, ge=2, le=65536)
+    audio_queue_limit: int = Field(default=64, ge=1, le=512)
 
     # profile
     profile: Literal["dev", "prod"] = Field(...)

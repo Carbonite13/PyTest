@@ -7,8 +7,11 @@ import sys
 
 from pathlib import Path
 from typing import Optional
+from contextlib import asynccontextmanager
 from .config import settings, Settings
 from Pot.core.log import module_log
+from Pot.core.asr import asr_registry
+from Pot.core.downstream import transcript_dispatcher
 
 from Pot.api.v1.routes.debug import debugRouter
 from Pot.api.v1.routes.signaling import signalingRouter
@@ -19,6 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 logger = module_log(__name__)
 
 def create_app(config: Settings) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        await asr_registry.stop_all()
+        await transcript_dispatcher.stop()
+
     app = FastAPI(
         title=config.app_info_name,
         version=config.app_info_version,
@@ -27,9 +36,14 @@ def create_app(config: Settings) -> FastAPI:
             "email": config.app_contact_email,
             "phone": config.app_contact_phone,
         },
-        debug=True if config.profile.lower() == "dev" else False
+        debug=True if config.profile.lower() == "dev" else False,
+        lifespan=lifespan,
     )
     app.config = config
+
+    @app.get("/health", tags=["system"])
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "service": config.app_info_name, "version": config.app_info_version}
 
     # Enable CORS for external frontend & mobile clients
     app.add_middleware(
@@ -48,8 +62,8 @@ def create_app(config: Settings) -> FastAPI:
         logger.warning("Including Debug router")
         app.include_router(debugRouter, prefix="/debug")
 
-    # WebRTC signaling router — always active
-    logger.info("Including WebRTC signaling router")
+    # Centralized audio room WebSocket — always active
+    logger.info("Including audio room router")
     app.include_router(signalingRouter, prefix="/rtc")
 
     # Meeting session lifecycle endpoints (create/get/end meeting, audio ingest)
@@ -73,8 +87,13 @@ def create_app(config: Settings) -> FastAPI:
 
     return app
 
+
+# ASGI entrypoint used by uvicorn/gunicorn and by local integration checks.
+# Keeping one app instance also preserves the in-process room/session managers
+# used by this MVP.
+app = create_app(settings)
+
 def main():
-    app = create_app(settings)
     server_config = corn.Config(
         app=app,
         host="0.0.0.0",
@@ -92,3 +111,7 @@ def main():
     except (CancelledError, KeyboardInterrupt):
         logger.info("[+] Exiting the application")
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

@@ -50,12 +50,13 @@ async def test_perm():
         "perm_directory_create": settings.perm_directory_create,
     }
 
-@debugRouter.get("/rtc")
-async def test_rtc():
-    """Explore WebRTC runtime configurations"""
+@debugRouter.get("/audio")
+async def test_audio():
+    """Expose non-secret centralized audio/ASR configuration state."""
     return {
-        "stun_server": settings.stun_server,
-        "turn_server": "[+]" if settings.turn_server else "[-]",
-        "turn_username": "[+]" if settings.turn_username else "[-]",
-        "turn_credential": "[+]" if settings.turn_credential else "[-]",
+        "sample_rate": settings.asr_sample_rate,
+        "encoding": settings.asr_encoding,
+        "max_participants": settings.max_participants_per_room,
+        "deepgram_configured": bool(settings.deepgram_api_key),
+        "downstream_configured": bool(settings.downstream_api_url),
     }

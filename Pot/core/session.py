@@ -33,10 +33,8 @@ def _generate_meeting_code(length: int = 9) -> str:
     raw = "".join(secrets.choice(alphabet) for _ in range(length))
     return f"{raw[:3]}-{raw[3:6]}-{raw[6:]}"
 
-
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
 
 @dataclass
 class MeetingSession:
@@ -63,7 +61,6 @@ class MeetingSession:
             "started_at": self.started_at,
             "ended_at": self.ended_at,
         }
-
 
 class SessionManager:
     """In-process lifecycle registry used by the current single-worker app."""
@@ -122,6 +119,31 @@ class SessionManager:
                 session.host_peer_id = peer_id
                 return session, True, "ok"
             return session, False, "Waiting for host admission"
+
+    def prepare_audio_join(
+        self,
+        session_id: str,
+        peer_id: str,
+        meeting_code: str,
+        host_token: Optional[str] = None,
+    ) -> tuple[Optional[MeetingSession], bool, str]:
+        """Authorize the centralized audio room using the non-guessable code.
+
+        The host capability identifies the creator; the meeting code is the
+        guest authorization. Participant identity is always the server-created
+        WebSocket peer id.
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return None, False, "Meeting not found"
+            if session.status == SessionStatus.ENDED:
+                return session, False, "Meeting has ended"
+            if session.meeting_code.upper() != meeting_code.strip().upper():
+                return session, False, "Invalid meeting code"
+            if self.verify_host_token(session_id, host_token):
+                session.host_peer_id = peer_id
+            return session, True, "ok"
 
     def admit_participant(self, session_id: str, peer_id: str) -> bool:
         with self._lock:
@@ -189,6 +211,5 @@ class SessionManager:
     def list_sessions(self) -> list[dict]:
         with self._lock:
             return [s.info() for s in self._sessions.values()]
-
 
 session_manager = SessionManager()

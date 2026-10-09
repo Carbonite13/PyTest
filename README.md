@@ -9,12 +9,29 @@ The official project submission repository for **DEFINE 4.0 — The World's Real
 
 ## Meeting system audit
 
-The current implementation is a FastAPI signaling relay with browser-to-browser
-WebRTC media. Meeting state and WebSocket rooms are in-process and therefore
-run with one worker. Client transcription sends versioned text events only; the
-server rejects raw audio uploads. See [Pot/docs/backend_architecture.md](Pot/docs/backend_architecture.md),
-[Pot/docs/webrtc.md](Pot/docs/webrtc.md), and [Pot/docs/endpoints.md](Pot/docs/endpoints.md)
-for lifecycle, signaling, privacy, deployment, and testing details.
+The current implementation is a centralized FastAPI audio relay. Browsers send
+mono 16 kHz PCM frames over `/rtc/ws`; the server forwards them to other room
+participants and to an optional Deepgram live transcription stream. Room state
+is in-process and therefore runs with one worker. See
+[Pot/docs/audio_architecture.md](Pot/docs/audio_architecture.md),
+[Pot/docs/audio_protocol.md](Pot/docs/audio_protocol.md), and
+[Pot/docs/endpoints.md](Pot/docs/endpoints.md) for lifecycle, protocol,
+privacy, deployment, and testing details.
+
+## Run the meeting UI
+
+Start the FastAPI application from the repository root:
+
+```bash
+poetry run python -m Pot.main
+```
+
+Install dependencies with `poetry install --with server,test`, then open
+`http://127.0.0.1:9030/` and confirm
+`http://127.0.0.1:9030/health` returns `{"status":"ok", ...}`. Tea uses
+same-origin `/rtc/...` REST and `/rtc/ws` WebSocket paths by default. If Tea is
+hosted separately, set the `api-base-url` meta tag in `Tea/index.html` to the
+FastAPI origin.
 
 ## Team Information
 
