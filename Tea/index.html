@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teapot — Smart Conversation Assistant</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Bootstrap Icons CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <!-- Project Stylesheets (Connected in modular order) -->
+  <link rel="stylesheet" href="css/variable.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+
+  <!-- Early Theme Restoration Script to prevent theme flash -->
+  <script>
+    (function() {
+      try {
+        const savedTheme = localStorage.getItem('teapot_theme_key');
+        const validThemes = ['crimson-eclipse', 'light-theme', 'emerald-afterdark', 'cobalt-night', 'amethyst-smoke', 'copper-ember', 'arctic-teal', 'golden-dusk'];
+        const activeTheme = validThemes.includes(savedTheme) ? savedTheme : 'crimson-eclipse';
+        document.documentElement.setAttribute('data-theme', activeTheme);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Sidebar Header / Teapot Logo -->
+      <div class="sidebar-header">
+        <div class="brand-placeholder">
+          <div class="brand-icon-box">
+            <svg viewBox="0 0 24 24">
+              <path d="M11 3h2v2h-2zM8 5h8v2H8zM5 10c0 5.523 3.134 10 7 10s7-4.477 7-10H5zm14 1c1.657 0 3-1.343 3-3s-1.343-3-3-3v2c.552 0 1 .448 1 1s-.448 1-1 1v2zM5 11v2c-.552 0-1-.448-1-1s.448-1 1-1zm-2 2c0 1.657 1.343 3 3 3v-2c-.552 0-1-.448-1-1H3z"/>
+            </svg>
+          </div>
+          <span>Teapot</span>
+        </div>
+      </div>
+
+      <!-- Sidebar Body -->
+      <div class="sidebar-body">
+        <nav class="nav flex-column gap-1">
+          <a href="#" class="nav-link-custom active" id="navHomeLink">
+            <i class="bi bi-house-door"></i>
+            <span>Home</span>
+          </a>
+          <a href="#" class="nav-link-custom" id="navJumpLink">
+            <i class="bi bi-chat-left-dots"></i>
+            <span>Jump into the Conversation</span>
+          </a>
+        </nav>
+
+        <div class="nav-section-label">Previous Conversations</div>
+        
+        <!-- Dynamic Conversation History Container (Populated via AJAX) -->
+        <ul class="conversation-list" id="conversationList">
+          <!-- Dynamically populated or state messages rendered via JS -->
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Content Layout -->
+    <div class="app-main">
+      
+      <!-- Top Navbar Header -->
+      <header class="app-header">
+        <div class="d-flex align-items-center gap-3">
+          <!-- Mobile Sidebar Toggle -->
+          <button class="btn btn-sm text-light border-0 d-lg-none" id="sidebarToggleBtn" aria-label="Toggle navigation menu">
+            <i class="bi bi-list fs-4"></i>
+          </button>
+          
+          <span class="fw-medium fs-6 text-primary d-none d-md-inline" id="headerPageTitle">Home</span>
+        </div>
+
+        <!-- Search Input in Header -->
+        <div class="header-search-container">
+          <i class="bi bi-search header-search-icon"></i>
+          <input type="text" class="header-search-input" placeholder="Search workspace..." aria-label="Search workspace">
+        </div>
+
+        <!-- Right Header Items: Quick Theme Toggle & Profile Avatar -->
+        <div class="d-flex align-items-center gap-3">
+          <!-- Quick Theme Toggle Button -->
+          <button type="button" class="header-icon-btn" id="themeToggleBtn" aria-label="Switch theme" title="Switch theme: Crimson Eclipse">
+            <i class="bi bi-palette"></i>
+          </button>
+
+          <!-- Profile Avatar Dropdown -->
+          <div class="dropdown">
+            <button class="profile-btn dropdown-toggle" type="button" id="profileDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+              <div class="avatar-circle">JD</div>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-custom" aria-labelledby="profileDropdownBtn">
+              <li>
+                <div class="px-3 py-2 border-bottom">
+                  <div class="fw-semibold text-primary">Jane Doe</div>
+                  <div class="small text-muted">jane.doe@example.com</div>
+                </div>
+              </li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom mt-1" href="#" id="dropdownAccountLink">
+                  <i class="bi bi-person"></i> Account Settings
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom" href="#" id="dropdownPreferencesLink">
+                  <i class="bi bi-sliders"></i> Preferences & Customization
+                </a>
+              </li>
+              <li><hr class="dropdown-divider my-1"></li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom text-danger" href="#">
+                  <i class="bi bi-box-arrow-right"></i> Sign Out
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dashboard Main Content -->
+      <main class="dashboard-content">
+        
+        <!-- Home View Container -->
+        <div id="homeView">
+          <!-- Hero Welcoming Section -->
+          <section class="hero-section">
+            <div class="row align-items-center gy-4">
+              <div class="col-lg-8">
+                <div class="mb-2">
+                  <span class="status-badge-editorial">
+                    <i class="bi bi-stars"></i> Smart Conversation Assistant
+                  </span>
+                </div>
+                <h1 class="display-6 fw-semibold mb-3">
+                  Streamline conversations with intelligent organization.
+                </h1>
+                <p class="lead fs-6 text-secondary mb-4" style="max-width: 640px;">
+                  A clean, minimal digital assistant designed to help organize meeting discussions, identify action items, and maintain clear records without distracting from the conversation.
+                </p>
+                
+                <!-- Single Elegant Text Link Navigation -->
+                <div class="mt-2">
+                  <a href="#" class="jump-conversation-link" id="jumpConversationLink">
+                    <span>Jump into the Conversation</span>
+                    <i class="bi bi-arrow-right"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Feature Highlights Section -->
+          <section class="mt-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="fs-5 fw-semibold mb-0">Intended Capabilities</h2>
+              <span class="small text-muted">Core Platform Objectives</span>
+            </div>
+
+            <div class="row g-4">
+              <!-- Feature 1 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-body-text"></i>
+                  </div>
+                  <h3 class="feature-title">Real-time Summaries</h3>
+                  <p class="feature-desc">
+                    Structure key discussion points and main takeaways dynamically as conversations progress.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 2 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-check2-square"></i>
+                  </div>
+                  <h3 class="feature-title">Action Items</h3>
+                  <p class="feature-desc">
+                    Automatically highlight assigned tasks, responsible owners, and follow-up deadlines.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 3 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-lightbulb"></i>
+                  </div>
+                  <h3 class="feature-title">Smart Suggestions</h3>
+                  <p class="feature-desc">
+                    Receive contextual prompts and relevant insights to support active participation.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Feature 4 -->
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="feature-card">
+                  <div class="feature-icon-wrapper">
+                    <i class="bi bi-shield-check"></i>
+                  </div>
+                  <h3 class="feature-title">Privacy & Control</h3>
+                  <p class="feature-desc">
+                    Designed with strict data protection, user authorization, and privacy-first standards.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Jump into the Conversation View Container -->
+        <div id="startMeetingView" class="d-none">
+          <!-- Back button & View Header -->
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="backToHomeBtn">
+              <i class="bi bi-arrow-left"></i> Back to Home
+            </button>
+            <h1 class="display-6 fw-semibold mb-2">Join a New Conversation</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
+              Choose how you'd like to start your conversation.
+            </p>
+          </div>
+
+          <!-- Two Large Balanced Clickable Cards -->
+          <div class="row g-4 mt-1">
+            <!-- Option A: Around the Globe -->
+            <div class="col-12 col-md-6">
+              <div class="jump-option-card" id="aroundGlobeCard">
+                <i class="bi bi-arrow-right arrow-icon"></i>
+                <div class="feature-icon-wrapper mb-3">
+                  <i class="bi bi-globe2"></i>
+                </div>
+                <h2 class="fs-4 fw-semibold mb-2">Around the Globe</h2>
+                <p class="text-secondary fs-6 mb-0">
+                  Explore ideas, get global insights, and see different perspectives.
+                </p>
+              </div>
+            </div>
+
+            <!-- Option B: Around the Table -->
+            <div class="col-12 col-md-6">
+              <div class="jump-option-card" id="aroundTableCard">
+                <i class="bi bi-arrow-right arrow-icon"></i>
+                <div class="feature-icon-wrapper mb-3">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+                <h2 class="fs-4 fw-semibold mb-2">Around the Table</h2>
+                <p class="text-secondary fs-6 mb-0">
+                  Collaborate, share ideas, and build together.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Feedback Container -->
+          <div id="jumpOptionFeedback" class="sidebar-status-msg status-empty mt-4 d-none">
+            <!-- Dynamic feedback message -->
+          </div>
+        </div>
+
+        <!-- Dedicated Around the Globe View Container -->
+        <div id="aroundGlobeView" class="d-none">
+          <!-- Back button & View Header -->
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="aroundGlobeBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Conversation Options
+            </button>
+            <h1 class="display-6 fw-semibold mb-2">Around the Globe</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
+              Join a global WebRTC conversation room using a room code.
+            </p>
+          </div>
+
+          <!-- Code Entry Card / Active Conference UI -->
+          <div class="row g-4 mt-1">
+            <div class="col-12 col-lg-10 col-xl-9">
+              <!-- Room Join Form Card -->
+              <div class="card border p-4 shadow-sm mb-4" id="webrtcJoinCard" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="feature-icon-wrapper mb-3">
+                  <i class="bi bi-globe2"></i>
+                </div>
+                <h2 class="fs-4 fw-semibold mb-2">Join WebRTC Room</h2>
+                <p class="text-secondary fs-6 mb-4">
+                  Enter a room ID or code to start real-time video conferencing.
+                </p>
+
+                <form id="aroundGlobeForm" novalidate>
+                  <div class="mb-3">
+                    <label for="globeCodeInput" class="form-label small fw-medium text-secondary">Room ID or Code</label>
+                    <div class="input-group">
+                      <span class="input-group-text text-secondary border-end-0"><i class="bi bi-door-open"></i></span>
+                      <input type="text" class="form-control border-start-0" id="globeCodeInput" placeholder="e.g. room-101" autocomplete="off" required>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-primary-custom w-100 justify-content-center fw-semibold" id="globeJoinBtn">
+                    <i class="bi bi-telephone-inbound"></i> Connect & Join Room
+                  </button>
+
+                  <div id="globeFeedback" class="sidebar-status-msg mt-3 d-none">
+                    <!-- Dynamic feedback message -->
+                  </div>
+                </form>
+              </div>
+
+              <!-- Active Video Conferencing Interface -->
+              <div class="card border p-4 shadow-sm d-none" id="videoConferenceInterface" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+                  <div>
+                    <h2 class="fs-5 fw-semibold mb-0" id="conferenceRoomTitle">Room: -</h2>
+                    <span class="small text-muted" id="webrtcStatusLabel">Status: Disconnected</span>
+                  </div>
+                  <span class="status-badge-editorial" id="webrtcPeerCountBadge"><i class="bi bi-people"></i> 1 Participant</span>
+                </div>
+
+                <!-- Video Grid Grid Display -->
+                <div class="row g-3 mb-4" id="videoGridContainer">
+                  <!-- Local Peer Video Stream Tile -->
+                  <div class="col-12 col-md-6" id="localVideoTile">
+                    <div class="video-stream-box position-relative rounded overflow-hidden bg-dark" style="aspect-ratio: 16/9;">
+                      <video id="localVideo" autoplay playsinline muted class="w-100 h-100 object-fit-cover"></video>
+                      <div class="position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white rounded small">
+                        <i class="bi bi-person-circle me-1"></i> You (Local)
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Remote Video Streams appended dynamically -->
+                </div>
+
+                <!-- Meeting Control Bar -->
+                <div class="d-flex flex-wrap align-items-center justify-content-center gap-3 pt-3 border-top" id="conferenceControls">
+                  <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleAudioBtn" title="Mute/Unmute Audio">
+                    <i class="bi bi-mic-fill fs-5" id="audioBtnIcon"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-light rounded-circle p-3" id="toggleVideoBtn" title="Enable/Disable Camera">
+                    <i class="bi bi-camera-video-fill fs-5" id="videoBtnIcon"></i>
+                  </button>
+                  <button type="button" class="btn btn-danger rounded-circle p-3" id="leaveCallBtn" title="Leave Conference">
+                    <i class="bi bi-telephone-x-fill fs-5"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account Settings View Container -->
+        <div id="accountSettingsView" class="d-none">
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="accountBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </button>
+            <h1 class="display-6 fw-semibold mb-2">Account Settings</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 620px;">
+              Manage your personal profile information, assistant preferences, and application themes.
+            </p>
+          </div>
+
+          <!-- Multi-Theme Selector Section -->
+          <div class="card border p-4 shadow-sm mb-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+            <div class="mb-3">
+              <h2 class="fs-5 fw-semibold mb-1">Appearance & Themes</h2>
+              <p class="text-secondary small mb-0">Select your preferred workspace gradient theme. Changes take effect immediately.</p>
+            </div>
+
+            <div class="theme-selector-grid" id="themeSelectorGrid">
+              <!-- Theme 1: Crimson Eclipse -->
+              <div class="theme-card active" data-theme-id="crimson-eclipse">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #08080F 0%, #7F102D 100%);">
+                  <div class="theme-accent-dot" style="background-color: #FF174F;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Crimson Eclipse</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 2: Emerald Afterdark -->
+              <div class="theme-card" data-theme-id="emerald-afterdark">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #07110E 0%, #075C46 100%);">
+                  <div class="theme-accent-dot" style="background-color: #35D6A0;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Emerald Afterdark</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 3: Cobalt Night -->
+              <div class="theme-card" data-theme-id="cobalt-night">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #070D19 0%, #124C9A 100%);">
+                  <div class="theme-accent-dot" style="background-color: #5C9DFF;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Cobalt Night</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 4: Amethyst Smoke -->
+              <div class="theme-card" data-theme-id="amethyst-smoke">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #100B16 0%, #54266D 100%);">
+                  <div class="theme-accent-dot" style="background-color: #C18AFF;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Amethyst Smoke</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 5: Copper Ember -->
+              <div class="theme-card" data-theme-id="copper-ember">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #110C0A 0%, #77351F 100%);">
+                  <div class="theme-accent-dot" style="background-color: #F2A06B;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Copper Ember</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 6: Arctic Teal -->
+              <div class="theme-card" data-theme-id="arctic-teal">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #071114 0%, #08616A 100%);">
+                  <div class="theme-accent-dot" style="background-color: #52E0DC;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Arctic Teal</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+
+              <!-- Theme 7: Golden Dusk -->
+              <div class="theme-card" data-theme-id="golden-dusk">
+                <div class="theme-preview-strip" style="background: linear-gradient(135deg, #10100A 0%, #66501A 100%);">
+                  <div class="theme-accent-dot" style="background-color: #EAC45D;"></div>
+                </div>
+                <div class="theme-card-info">
+                  <span class="theme-card-name">Golden Dusk</span>
+                  <i class="bi bi-check-circle-fill theme-check-icon"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <form id="accountSettingsForm" novalidate>
+            <div class="row g-4 mt-1">
+              <!-- Personal Information Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card h-100 border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="avatar-circle" style="width: 48px; height: 48px; font-size: 1.1rem;">JD</div>
+                    <div>
+                      <h2 class="fs-5 fw-semibold mb-1">Personal Information</h2>
+                      <p class="text-secondary small mb-0">Your profile identity and workspace details</p>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingDisplayName" class="form-label small fw-medium text-secondary">Display Name</label>
+                    <input type="text" class="form-control" id="settingDisplayName" value="Jane Doe" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingEmail" class="form-label small fw-medium text-secondary">Email Address</label>
+                    <input type="email" class="form-control" id="settingEmail" value="jane.doe@example.com" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingRole" class="form-label small fw-medium text-secondary">Professional Role</label>
+                    <input type="text" class="form-control" id="settingRole" value="Product Manager">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Assistant Preferences Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card h-100 border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="feature-icon-wrapper mb-0" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                      <i class="bi bi-sliders"></i>
+                    </div>
+                    <div>
+                      <h2 class="fs-5 fw-semibold mb-1">Assistant Preferences</h2>
+                      <p class="text-secondary small mb-0">Language defaults and summary preferences</p>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label for="settingLanguage" class="form-label small fw-medium text-secondary">Preferred Language</label>
+                    <select class="form-select" id="settingLanguage">
+                      <option value="en-US" selected>English (US)</option>
+                      <option value="en-UK">English (UK)</option>
+                      <option value="es">Spanish (Español)</option>
+                      <option value="fr">French (Français)</option>
+                      <option value="de">German (Deutsch)</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label small fw-medium text-secondary">Default Summary Length</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryConcise" value="concise">
+                        <label class="form-check-label small text-primary" for="summaryConcise">Concise</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryBalanced" value="balanced" checked>
+                        <label class="form-check-label small text-primary" for="summaryBalanced">Balanced</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="summaryLength" id="summaryDetailed" value="detailed">
+                        <label class="form-check-label small text-primary" for="summaryDetailed">Detailed</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <label class="form-label small fw-medium text-secondary">Preferred Insight Types</label>
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightDecisions" checked>
+                          <label class="form-check-label small text-primary" for="insightDecisions">Key Decisions</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightTasks" checked>
+                          <label class="form-check-label small text-primary" for="insightTasks">Action Items & Tasks</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightRisks">
+                          <label class="form-check-label small text-primary" for="insightRisks">Risks & Concerns</label>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="insightSuggestions" checked>
+                          <label class="form-check-label small text-primary" for="insightSuggestions">Suggested Responses</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Shortcut to Customization Page -->
+            <div class="card border p-4 shadow-sm mt-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div>
+                  <h3 class="fs-6 fw-semibold mb-1">Conversation Priorities & Approach</h3>
+                  <p class="text-secondary small mb-0">Configure what topics the assistant monitors and what questions or response suggestions it provides.</p>
+                </div>
+                <button type="button" class="btn-secondary-custom" id="goToCustomizationBtn">
+                  <i class="bi bi-sliders"></i> Open Customization Page
+                </button>
+              </div>
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-4">
+              <button type="submit" class="btn-primary-custom" id="saveAccountSettingsBtn">
+                <i class="bi bi-check-lg"></i> Save Changes
+              </button>
+              <button type="button" class="btn-secondary-custom" id="resetAccountSettingsBtn">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset Defaults
+              </button>
+            </div>
+
+            <div id="accountSettingsFeedback" class="sidebar-status-msg mt-3 d-none">
+              <!-- Dynamic feedback message -->
+            </div>
+          </form>
+        </div>
+
+        <!-- Customization View Container (Two-Column Side-by-Side Layout) -->
+        <div id="customizationView" class="d-none">
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="customizationBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Settings
+            </button>
+            <h1 class="display-6 fw-semibold mb-2">Conversation Customization</h1>
+            <p class="lead fs-6 text-secondary mb-0" style="max-width: 680px;">
+              Define what information matters to you and choose the conversation style and question suggestions the assistant should provide.
+            </p>
+          </div>
+
+          <form id="customizationForm" novalidate>
+            <div class="row g-4">
+              <!-- Column 1: Priorities Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card border p-4 shadow-sm h-100" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <div>
+                      <h2 class="fs-5 fw-semibold mb-1">Priorities</h2>
+                      <p class="text-secondary small mb-0">Choose what the assistant should pay attention to during your conversations.</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary-custom text-nowrap" id="resetSectionABtn">
+                      <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_key_points" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="priority_key_points">Key discussion points</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_decisions" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="priority_decisions">Decisions & agreements</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_tasks" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="priority_tasks">Tasks & commitments</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_deadlines" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="priority_deadlines">Deadlines & timelines</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_risks">
+                        <label class="form-check-label small fw-medium text-primary" for="priority_risks">Risks, objections, & concerns</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_budgets">
+                        <label class="form-check-label small fw-medium text-primary" for="priority_budgets">Costs & budgets</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_questions">
+                        <label class="form-check-label small fw-medium text-primary" for="priority_questions">Unanswered questions</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="priority_opportunities" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="priority_opportunities">Opportunities & next steps</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Column 2: Conversation Approach Card -->
+              <div class="col-12 col-lg-6">
+                <div class="card border p-4 shadow-sm h-100" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                  <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <div>
+                      <h2 class="fs-5 fw-semibold mb-1">Conversation Approach</h2>
+                      <p class="text-secondary small mb-0">Choose the types of questions and response suggestions that help during discussions.</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary-custom text-nowrap" id="resetSectionBBtn">
+                      <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                  </div>
+
+                  <div class="row g-3 mb-4">
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_clarifying" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="approach_clarifying">Clarifying questions</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_followup" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="approach_followup">Follow-up questions</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_disagree">
+                        <label class="form-check-label small fw-medium text-primary" for="approach_disagree">Polite ways to disagree</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_negotiation">
+                        <label class="form-check-label small fw-medium text-primary" for="approach_negotiation">Negotiation & proposals</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_uncover_risks">
+                        <label class="form-check-label small fw-medium text-primary" for="approach_uncover_risks">Questions to uncover risks</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_evidence">
+                        <label class="form-check-label small fw-medium text-primary" for="approach_evidence">Request evidence or examples</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_objections">
+                        <label class="form-check-label small fw-medium text-primary" for="approach_objections">Handling objections</label>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="approach_responses" checked>
+                        <label class="form-check-label small fw-medium text-primary" for="approach_responses">Professional talking points</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Preferred Response Style inside Conversation Approach Card -->
+                  <div class="pt-3 border-top">
+                    <label class="form-label small fw-semibold text-primary mb-1">Preferred Response Style</label>
+                    <p class="text-secondary small mb-3">Select the tone and detail level for assistant suggestions.</p>
+                    
+                    <div class="response-style-group">
+                      <div class="response-style-pill">
+                        <input class="form-check-input my-0" type="radio" name="responseStyle" id="styleConcise" value="concise">
+                        <label class="form-check-label fw-medium small mb-0" for="styleConcise">Concise</label>
+                      </div>
+                      <div class="response-style-pill selected">
+                        <input class="form-check-input my-0" type="radio" name="responseStyle" id="styleDiplomatic" value="diplomatic" checked>
+                        <label class="form-check-label fw-medium small mb-0" for="styleDiplomatic">Diplomatic</label>
+                      </div>
+                      <div class="response-style-pill">
+                        <input class="form-check-input my-0" type="radio" name="responseStyle" id="styleAssertive" value="assertive">
+                        <label class="form-check-label fw-medium small mb-0" for="styleAssertive">Assertive</label>
+                      </div>
+                      <div class="response-style-pill">
+                        <input class="form-check-input my-0" type="radio" name="responseStyle" id="styleDetailed" value="detailed">
+                        <label class="form-check-label fw-medium small mb-0" for="styleDetailed">Detailed</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-4">
+              <button type="submit" class="btn-primary-custom" id="saveCustomizationBtn">
+                <i class="bi bi-check-lg"></i> Save Customization
+              </button>
+              <button type="button" class="btn-secondary-custom" id="resetAllCustomizationBtn">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset All Customization
+              </button>
+            </div>
+
+            <div id="customizationFeedback" class="sidebar-status-msg mt-3 d-none">
+              <!-- Dynamic feedback message -->
+            </div>
+          </form>
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle CDN (Includes Popper for Dropdowns) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Application Main JS (ES Module) -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
