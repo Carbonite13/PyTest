@@ -1,12 +1,16 @@
 /**
- * Main Application Module (Editorial Workspace)
- * Handles client-side UI interactions, view navigation, settings state management, and AJAX conversation history fetching.
+ * Main Application Module (Teapot Workspace System)
+ * Handles UI interactions, view navigation, multi-theme switching, and conversation history.
  */
 
 import { API_CONFIG, UI_MESSAGES } from './modules/constants.js';
+import { WebRTCClient } from './modules/webrtcClient.js';
+
+let rtcClient = null;
 
 // Local session state container for frontend prototype demonstration
 const appState = {
+  theme: 'crimson-eclipse',
   account: {
     displayName: 'Jane Doe',
     email: 'jane.doe@example.com',
@@ -18,19 +22,53 @@ const appState = {
       tasks: true,
       risks: false,
       suggestions: true
-    }
+    },
+    roleDescription: '',
+    rolePoints: []
   },
   customization: {
-    priorities: {
-      key_points: true,
-      decisions: true,
-      tasks: true,
-      deadlines: true,
-      risks: false,
-      budgets: false,
-      questions: false,
-      opportunities: true
-    },
+    priorities: [
+      {
+        id: "discussion-points",
+        label: "Discussion Points",
+        enabled: true
+      },
+      {
+        id: "decisions",
+        label: "Decisions and Agreements",
+        enabled: true
+      },
+      {
+        id: "tasks",
+        label: "Tasks and Commitments",
+        enabled: true
+      },
+      {
+        id: "deadlines",
+        label: "Deadlines",
+        enabled: true
+      },
+      {
+        id: "risks",
+        label: "Risks and Concerns",
+        enabled: true
+      },
+      {
+        id: "costs",
+        label: "Costs and Budgets",
+        enabled: true
+      },
+      {
+        id: "questions",
+        label: "Unanswered Questions",
+        enabled: true
+      },
+      {
+        id: "opportunities",
+        label: "Opportunities and Next Steps",
+        enabled: true
+      }
+    ],
     approach: {
       clarifying: true,
       followup: true,
@@ -46,6 +84,7 @@ const appState = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  initThemeManager();
   initSidebarToggle();
   initViewNavigation();
   initMeetingControls();
@@ -53,6 +92,100 @@ document.addEventListener('DOMContentLoaded', () => {
   initCustomizationControls();
   fetchConversationsHistory();
 });
+
+/**
+ * Multi-Theme Management System
+ * Supports 7 Dark Gradient Themes in Settings + Light Theme + Top-Bar Toggle Alternating
+ */
+function initThemeManager() {
+  const THEME_STORAGE_KEY = 'teapot_theme_key';
+  const THEMES = [
+    { id: 'crimson-eclipse', name: 'Crimson Eclipse' },
+    { id: 'light-theme', name: 'Light Theme' },
+    { id: 'emerald-afterdark', name: 'Emerald Afterdark' },
+    { id: 'cobalt-night', name: 'Cobalt Night' },
+    { id: 'amethyst-smoke', name: 'Amethyst Smoke' },
+    { id: 'copper-ember', name: 'Copper Ember' },
+    { id: 'arctic-teal', name: 'Arctic Teal' },
+    { id: 'golden-dusk', name: 'Golden Dusk' }
+  ];
+
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+  function applyTheme(themeId) {
+    const themeObj = THEMES.find((t) => t.id === themeId) || THEMES[0];
+    const targetTheme = themeObj.id;
+    appState.theme = targetTheme;
+
+    document.documentElement.setAttribute('data-theme', targetTheme);
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, targetTheme);
+    } catch (err) {
+      console.warn('Unable to persist theme to localStorage:', err);
+    }
+
+    // Update active UI card in theme selector grid
+    document.querySelectorAll('.theme-card').forEach((card) => {
+      const cardThemeId = card.getAttribute('data-theme-id');
+      if (cardThemeId === targetTheme) {
+        card.classList.add('active');
+      } else {
+        card.classList.remove('active');
+      }
+    });
+
+    // Update header quick theme toggle button tooltip
+    if (themeToggleBtn) {
+      const targetLabel = (targetTheme === 'light-theme') ? 'Crimson Eclipse' : 'Light Theme';
+      themeToggleBtn.setAttribute('title', `Current theme: ${themeObj.name} (Click to switch to ${targetLabel})`);
+    }
+  }
+
+  /**
+   * Top-Bar Toggle Handler:
+   * Alternates strictly between Crimson Eclipse and Light Theme.
+   * If any alternative gradient theme is active, switches to Crimson Eclipse.
+   */
+  function handleTopBarToggle() {
+    if (appState.theme === 'light-theme') {
+      applyTheme('crimson-eclipse');
+    } else if (appState.theme === 'crimson-eclipse') {
+      applyTheme('light-theme');
+    } else {
+      // If currently on any alternative gradient theme (Emerald, Cobalt, etc.)
+      applyTheme('crimson-eclipse');
+    }
+  }
+
+  // Load initial theme from localStorage or default
+  let savedTheme = 'crimson-eclipse';
+  try {
+    savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'crimson-eclipse';
+  } catch (err) {
+    savedTheme = 'crimson-eclipse';
+  }
+
+  applyTheme(savedTheme);
+
+  // Attach click listener for header quick theme toggle button
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleTopBarToggle();
+    });
+  }
+
+  // Attach click listeners to theme selection cards in Account Settings grid
+  document.querySelectorAll('.theme-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const themeId = card.getAttribute('data-theme-id');
+      if (themeId) {
+        applyTheme(themeId);
+      }
+    });
+  });
+}
 
 /**
  * Mobile Sidebar Toggle Handler
@@ -80,19 +213,22 @@ function initSidebarToggle() {
 }
 
 /**
- * Single-Page View Navigation (Home, Start Meeting, Account Settings, Customization)
+ * Single-Page View Navigation (Home, Jump into Conversation, Around the Globe, Account Settings, Customization)
  */
 function initViewNavigation() {
   const views = {
     home: document.getElementById('homeView'),
     startMeeting: document.getElementById('startMeetingView'),
+    aroundGlobe: document.getElementById('aroundGlobeView'),
     accountSettings: document.getElementById('accountSettingsView'),
     customization: document.getElementById('customizationView')
   };
 
   const navHomeLink = document.getElementById('navHomeLink');
-  const startMeetingBtn = document.getElementById('startMeetingBtn');
+  const navJumpLink = document.getElementById('navJumpLink');
+  const jumpConversationLink = document.getElementById('jumpConversationLink');
   const backToHomeBtn = document.getElementById('backToHomeBtn');
+  const aroundGlobeBackBtn = document.getElementById('aroundGlobeBackBtn');
   const accountBackBtn = document.getElementById('accountBackBtn');
   const customizationBackBtn = document.getElementById('customizationBackBtn');
   const goToCustomizationBtn = document.getElementById('goToCustomizationBtn');
@@ -112,11 +248,16 @@ function initViewNavigation() {
       }
     });
 
-    if (navHomeLink) {
+    if (navHomeLink && navJumpLink) {
       if (targetKey === 'home') {
         navHomeLink.classList.add('active');
+        navJumpLink.classList.remove('active');
+      } else if (targetKey === 'startMeeting' || targetKey === 'aroundGlobe') {
+        navHomeLink.classList.remove('active');
+        navJumpLink.classList.add('active');
       } else {
         navHomeLink.classList.remove('active');
+        navJumpLink.classList.remove('active');
       }
     }
 
@@ -127,10 +268,17 @@ function initViewNavigation() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  if (startMeetingBtn) {
-    startMeetingBtn.addEventListener('click', (e) => {
+  if (jumpConversationLink) {
+    jumpConversationLink.addEventListener('click', (e) => {
       e.preventDefault();
-      switchView('startMeeting', 'Start Meeting');
+      switchView('startMeeting', 'Jump into the Conversation');
+    });
+  }
+
+  if (navJumpLink) {
+    navJumpLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('startMeeting', 'Jump into the Conversation');
     });
   }
 
@@ -145,6 +293,13 @@ function initViewNavigation() {
     backToHomeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       switchView('home', 'Home');
+    });
+  }
+
+  if (aroundGlobeBackBtn) {
+    aroundGlobeBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('startMeeting', 'Jump into the Conversation');
     });
   }
 
@@ -182,60 +337,623 @@ function initViewNavigation() {
       switchView('customization', 'Customization');
     });
   }
+
+  window.__teapotSwitchView = switchView;
 }
 
 /**
- * Controls & Validation for Start Meeting Page
+ * Controls for Jump into Conversation & Around the Globe (WebRTC Video Conferencing + Pre-Join Workflow)
  */
 function initMeetingControls() {
-  const createMeetingBtn = document.getElementById('createMeetingBtn');
-  const createMeetingFeedback = document.getElementById('createMeetingFeedback');
+  const aroundGlobeCard = document.getElementById('aroundGlobeCard');
+  const aroundTableCard = document.getElementById('aroundTableCard');
+  const jumpOptionFeedback = document.getElementById('jumpOptionFeedback');
 
-  const joinMeetingForm = document.getElementById('joinMeetingForm');
-  const meetingCodeInput = document.getElementById('meetingCodeInput');
-  const joinMeetingFeedback = document.getElementById('joinMeetingFeedback');
+  const aroundGlobeForm = document.getElementById('aroundGlobeForm');
+  const globeCodeInput = document.getElementById('globeCodeInput');
+  const globeFeedback = document.getElementById('globeFeedback');
 
-  if (createMeetingBtn && createMeetingFeedback) {
-    createMeetingBtn.addEventListener('click', () => {
-      createMeetingFeedback.classList.remove('d-none');
+  const webrtcJoinCard = document.getElementById('webrtcJoinCard');
+  const preJoinCard = document.getElementById('preJoinCard');
+  const preJoinRoomCodeLabel = document.getElementById('preJoinRoomCodeLabel');
+  const preJoinVideo = document.getElementById('preJoinVideo');
+  const preJoinCameraOffPlaceholder = document.getElementById('preJoinCameraOffPlaceholder');
+  const preJoinToggleMicBtn = document.getElementById('preJoinToggleMicBtn');
+  const preJoinMicIcon = document.getElementById('preJoinMicIcon');
+  const preJoinMicStatusText = document.getElementById('preJoinMicStatusText');
+  const preJoinToggleCamBtn = document.getElementById('preJoinToggleCamBtn');
+  const preJoinCamIcon = document.getElementById('preJoinCamIcon');
+  const preJoinCamStatusText = document.getElementById('preJoinCamStatusText');
+  const preJoinCancelBtn = document.getElementById('preJoinCancelBtn');
+  const preJoinConfirmBtn = document.getElementById('preJoinConfirmBtn');
+  const preJoinFeedback = document.getElementById('preJoinFeedback');
+
+  const videoConferenceInterface = document.getElementById('videoConferenceInterface');
+  const conferenceRoomTitle = document.getElementById('conferenceRoomTitle');
+  const webrtcStatusLabel = document.getElementById('webrtcStatusLabel');
+  const webrtcPeerCountBadge = document.getElementById('webrtcPeerCountBadge');
+  const videoGridContainer = document.getElementById('videoGridContainer');
+  const localVideo = document.getElementById('localVideo');
+
+  const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+  const audioBtnIcon = document.getElementById('audioBtnIcon');
+  const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+  const videoBtnIcon = document.getElementById('videoBtnIcon');
+  const leaveCallBtn = document.getElementById('leaveCallBtn');
+
+  let preJoinMicOn = false; // Default: muted / off
+  let preJoinCamOn = false; // Default: camera off
+  let preJoinPreviewStream = null;
+
+  if (aroundGlobeCard) {
+    aroundGlobeCard.addEventListener('click', () => {
+      if (window.__teapotSwitchView) {
+        window.__teapotSwitchView('aroundGlobe', 'Around the Globe');
+      }
     });
   }
 
-  if (joinMeetingForm && meetingCodeInput && joinMeetingFeedback) {
-    joinMeetingForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const codeValue = meetingCodeInput.value.trim();
-
-      joinMeetingFeedback.classList.remove('d-none');
-      joinMeetingFeedback.replaceChildren();
+  if (aroundTableCard && jumpOptionFeedback) {
+    aroundTableCard.addEventListener('click', () => {
+      jumpOptionFeedback.classList.remove('d-none');
+      jumpOptionFeedback.className = 'sidebar-status-msg status-empty mt-4';
+      jumpOptionFeedback.replaceChildren();
 
       const icon = document.createElement('i');
+      icon.className = 'bi bi-info-circle';
       const span = document.createElement('span');
+      span.textContent = '"Around the Table" local multi-peer session ready.';
 
-      if (!codeValue) {
-        joinMeetingFeedback.className = 'sidebar-status-msg status-error mt-3';
-        icon.className = 'bi bi-exclamation-triangle-fill';
-        span.textContent = 'Please enter a meeting code or link before joining.';
-      } else {
-        joinMeetingFeedback.className = 'sidebar-status-msg status-empty mt-3';
-        icon.className = 'bi bi-info-circle';
-        span.textContent = 'Joining will be available once the meeting service is connected.';
+      jumpOptionFeedback.appendChild(icon);
+      jumpOptionFeedback.appendChild(span);
+    });
+  }
+
+  // Pre-join Microphone Toggle
+  if (preJoinToggleMicBtn) {
+    preJoinToggleMicBtn.addEventListener('click', () => {
+      preJoinMicOn = !preJoinMicOn;
+      updatePreJoinMicUI();
+    });
+  }
+
+  function updatePreJoinMicUI() {
+    if (preJoinMicOn) {
+      if (preJoinMicIcon) preJoinMicIcon.className = 'bi bi-mic-fill text-success';
+      if (preJoinMicStatusText) preJoinMicStatusText.textContent = 'Microphone On';
+    } else {
+      if (preJoinMicIcon) preJoinMicIcon.className = 'bi bi-mic-mute-fill text-muted';
+      if (preJoinMicStatusText) preJoinMicStatusText.textContent = 'Microphone Off';
+    }
+  }
+
+  // Pre-join Camera Toggle
+  if (preJoinToggleCamBtn) {
+    preJoinToggleCamBtn.addEventListener('click', async () => {
+      preJoinCamOn = !preJoinCamOn;
+      await updatePreJoinCamUI();
+    });
+  }
+
+  async function updatePreJoinCamUI() {
+    if (preJoinCamOn) {
+      if (preJoinCamIcon) preJoinCamIcon.className = 'bi bi-camera-video-fill text-success';
+      if (preJoinCamStatusText) preJoinCamStatusText.textContent = 'Camera On';
+
+      try {
+        if (!preJoinPreviewStream) {
+          preJoinPreviewStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+        if (preJoinVideo) {
+          preJoinVideo.srcObject = preJoinPreviewStream;
+          preJoinVideo.classList.remove('d-none');
+        }
+        if (preJoinCameraOffPlaceholder) preJoinCameraOffPlaceholder.classList.add('d-none');
+      } catch (err) {
+        console.warn('Pre-join camera access error/denied:', err);
+        if (preJoinFeedback) {
+          preJoinFeedback.classList.remove('d-none');
+          preJoinFeedback.className = 'sidebar-status-msg status-warning mt-3';
+          preJoinFeedback.textContent = 'Camera preview unavailable or permission denied.';
+        }
+      }
+    } else {
+      if (preJoinCamIcon) preJoinCamIcon.className = 'bi bi-camera-video-off-fill text-muted';
+      if (preJoinCamStatusText) preJoinCamStatusText.textContent = 'Camera Off';
+
+      stopPreJoinPreviewStream();
+      if (preJoinVideo) {
+        preJoinVideo.srcObject = null;
+        preJoinVideo.classList.add('d-none');
+      }
+      if (preJoinCameraOffPlaceholder) preJoinCameraOffPlaceholder.classList.remove('d-none');
+    }
+  }
+
+  function stopPreJoinPreviewStream() {
+    if (preJoinPreviewStream) {
+      preJoinPreviewStream.getTracks().forEach(track => track.stop());
+      preJoinPreviewStream = null;
+    }
+  }
+
+  // Room Code Form Submit -> Opens Pre-Join Screen if Valid Code
+  if (aroundGlobeForm && globeCodeInput) {
+    aroundGlobeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const roomId = globeCodeInput.value.trim();
+
+      if (!roomId) {
+        if (globeFeedback) {
+          globeFeedback.classList.remove('d-none');
+          globeFeedback.className = 'sidebar-status-msg status-error mt-3';
+          globeFeedback.replaceChildren();
+          const icon = document.createElement('i');
+          icon.className = 'bi bi-exclamation-triangle-fill';
+          const span = document.createElement('span');
+          span.textContent = 'Please enter a conversation code or link before joining.';
+          globeFeedback.appendChild(icon);
+          globeFeedback.appendChild(span);
+        }
+        return;
       }
 
-      joinMeetingFeedback.appendChild(icon);
-      joinMeetingFeedback.appendChild(span);
+      if (globeFeedback) globeFeedback.classList.add('d-none');
+
+      // Open Pre-Join Card with room ID preserved
+      if (preJoinRoomCodeLabel) preJoinRoomCodeLabel.textContent = roomId;
+      if (webrtcJoinCard) webrtcJoinCard.classList.add('d-none');
+      if (preJoinCard) preJoinCard.classList.remove('d-none');
+
+      // Reset pre-join settings to defaults: Mic Off, Cam Off
+      preJoinMicOn = false;
+      preJoinCamOn = false;
+      updatePreJoinMicUI();
+      updatePreJoinCamUI();
     });
+  }
+
+  // Pre-join Cancel / Back Button -> Return to Code Entry Card with code preserved
+  if (preJoinCancelBtn) {
+    preJoinCancelBtn.addEventListener('click', () => {
+      stopPreJoinPreviewStream();
+      if (preJoinCard) preJoinCard.classList.add('d-none');
+      if (webrtcJoinCard) webrtcJoinCard.classList.remove('d-none');
+      if (preJoinFeedback) preJoinFeedback.classList.add('d-none');
+    });
+  }
+
+  // Pre-join Confirm Button ("Join Conversation")
+  if (preJoinConfirmBtn && globeCodeInput) {
+    preJoinConfirmBtn.addEventListener('click', async () => {
+      const roomId = globeCodeInput.value.trim();
+      if (!roomId) return;
+
+      stopPreJoinPreviewStream();
+
+      try {
+        if (preJoinFeedback) {
+          preJoinFeedback.classList.remove('d-none');
+          preJoinFeedback.className = 'sidebar-status-msg status-empty mt-3';
+          preJoinFeedback.textContent = 'Connecting to WebRTC meeting session...';
+        }
+
+        // Initialize WebRTC client
+        rtcClient = new WebRTCClient({
+          baseUrl: API_CONFIG.BASE_URL,
+          onStatusChange: (statusText) => {
+            if (webrtcStatusLabel) webrtcStatusLabel.textContent = `Status: ${statusText}`;
+          },
+          onPeerJoined: (peerId) => {
+            updatePeerCountBadge();
+          },
+          onPeerLeft: (peerId) => {
+            removeRemoteVideoTile(peerId);
+            updatePeerCountBadge();
+          },
+          onRemoteTrack: (peerId, stream) => {
+            addOrUpdateRemoteVideoTile(peerId, stream);
+          },
+          onError: (errMsg) => {
+            console.warn('WebRTC Error:', errMsg);
+          }
+        });
+
+        // 1. Acquire local stream with pre-join mic and camera states
+        const stream = await rtcClient.startLocalStream({ audio: preJoinMicOn, video: preJoinCamOn });
+        if (localVideo) {
+          localVideo.srcObject = stream;
+        }
+
+        // Apply audio/video mute state based on pre-join choices
+        if (!preJoinMicOn) {
+          rtcClient.audioMuted = true;
+          if (stream) stream.getAudioTracks().forEach(t => t.enabled = false);
+        }
+        if (!preJoinCamOn) {
+          rtcClient.videoMuted = true;
+          if (stream) stream.getVideoTracks().forEach(t => t.enabled = false);
+        }
+
+        // 2. Connect signaling WebSocket & join room
+        await rtcClient.connectSignaling();
+        rtcClient.joinRoom(roomId);
+
+        // Update In-Call Action Button UI states
+        if (toggleAudioBtn) {
+          if (!preJoinMicOn) {
+            toggleAudioBtn.classList.replace('btn-outline-light', 'btn-warning');
+            if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-mute-fill fs-5';
+          } else {
+            toggleAudioBtn.classList.replace('btn-warning', 'btn-outline-light');
+            if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-fill fs-5';
+          }
+        }
+        if (toggleVideoBtn) {
+          if (!preJoinCamOn) {
+            toggleVideoBtn.classList.replace('btn-outline-light', 'btn-warning');
+            if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-off-fill fs-5';
+          } else {
+            toggleVideoBtn.classList.replace('btn-warning', 'btn-outline-light');
+            if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-fill fs-5';
+          }
+        }
+
+        // Update UI View State
+        if (preJoinCard) preJoinCard.classList.add('d-none');
+        if (videoConferenceInterface) videoConferenceInterface.classList.remove('d-none');
+        if (conferenceRoomTitle) conferenceRoomTitle.textContent = `Room: ${roomId}`;
+        updatePeerCountBadge();
+
+      } catch (err) {
+        console.error('Failed to start WebRTC session:', err);
+        if (preJoinFeedback) {
+          preJoinFeedback.className = 'sidebar-status-msg status-error mt-3';
+          preJoinFeedback.textContent = `Joining failed: ${err.message || 'Unable to connect to meeting room.'}`;
+        }
+      }
+    });
+  }
+
+  // Audio Toggle Button
+  if (toggleAudioBtn) {
+    toggleAudioBtn.addEventListener('click', () => {
+      if (!rtcClient) return;
+      const isMuted = rtcClient.toggleAudio();
+      if (isMuted) {
+        toggleAudioBtn.classList.replace('btn-outline-light', 'btn-warning');
+        if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-mute-fill fs-5';
+      } else {
+        toggleAudioBtn.classList.replace('btn-warning', 'btn-outline-light');
+        if (audioBtnIcon) audioBtnIcon.className = 'bi bi-mic-fill fs-5';
+      }
+    });
+  }
+
+  // Video Toggle Button
+  if (toggleVideoBtn) {
+    toggleVideoBtn.addEventListener('click', () => {
+      if (!rtcClient) return;
+      const isMuted = rtcClient.toggleVideo();
+      if (isMuted) {
+        toggleVideoBtn.classList.replace('btn-outline-light', 'btn-warning');
+        if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-off-fill fs-5';
+      } else {
+        toggleVideoBtn.classList.replace('btn-warning', 'btn-outline-light');
+        if (videoBtnIcon) videoBtnIcon.className = 'bi bi-camera-video-fill fs-5';
+      }
+    });
+  }
+
+  // Leave Call Button
+  if (leaveCallBtn) {
+    leaveCallBtn.addEventListener('click', () => {
+      if (rtcClient) {
+        rtcClient.leaveRoom();
+        rtcClient.disconnect();
+        rtcClient = null;
+      }
+      // Reset UI elements
+      if (videoConferenceInterface) videoConferenceInterface.classList.add('d-none');
+      if (webrtcJoinCard) webrtcJoinCard.classList.remove('d-none');
+      if (localVideo) localVideo.srcObject = null;
+      // Remove remote videos
+      document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
+    });
+  }
+
+  function addOrUpdateRemoteVideoTile(peerId, stream) {
+    let tile = document.getElementById(`remote-tile-${peerId}`);
+    if (!tile && videoGridContainer) {
+      tile = document.createElement('div');
+      tile.className = 'col-12 col-md-6 remote-video-tile';
+      tile.id = `remote-tile-${peerId}`;
+
+      tile.innerHTML = `
+        <div class="video-stream-box position-relative rounded overflow-hidden bg-dark" style="aspect-ratio: 16/9;">
+          <video id="video-peer-${peerId}" autoplay playsinline class="w-100 h-100 object-fit-cover"></video>
+          <div class="position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-dark bg-opacity-75 text-white rounded small">
+            <i class="bi bi-person me-1"></i> Peer (${peerId.slice(0, 6)}...)
+          </div>
+        </div>
+      `;
+      videoGridContainer.appendChild(tile);
+    }
+
+    const videoElem = document.getElementById(`video-peer-${peerId}`);
+    if (videoElem) {
+      videoElem.srcObject = stream;
+    }
+  }
+
+  function removeRemoteVideoTile(peerId) {
+    const tile = document.getElementById(`remote-tile-${peerId}`);
+    if (tile) tile.remove();
+  }
+
+  function updatePeerCountBadge() {
+    if (!webrtcPeerCountBadge) return;
+    const peerCount = rtcClient ? rtcClient.peers.size + 1 : 1;
+    webrtcPeerCountBadge.innerHTML = `<i class="bi bi-people"></i> ${peerCount} Participant${peerCount > 1 ? 's' : ''}`;
   }
 }
 
 /**
- * Account Settings View Handler & State Management
+ * Account Settings View Handler & State Management (Includes Your Role Section)
  */
 function initAccountSettings() {
   const form = document.getElementById('accountSettingsForm');
   const resetBtn = document.getElementById('resetAccountSettingsBtn');
   const feedback = document.getElementById('accountSettingsFeedback');
 
+  // Your Role Elements
+  const userRoleDescription = document.getElementById('userRoleDescription');
+  const saveUserRoleBtn = document.getElementById('saveUserRoleBtn');
+  const editUserRoleBtn = document.getElementById('editUserRoleBtn');
+  const cancelUserRoleBtn = document.getElementById('cancelUserRoleBtn');
+  const userRoleFeedback = document.getElementById('userRoleFeedback');
+  const addRolePointBtn = document.getElementById('addRolePointBtn');
+  const rolePointsList = document.getElementById('rolePointsList');
+  const rolePointsStatus = document.getElementById('rolePointsStatus');
+
+  let isEditingDescription = false;
+  let savedDescriptionTemp = '';
+
+  // Initialize Role Description in UI
+  if (userRoleDescription) {
+    userRoleDescription.value = appState.account.roleDescription || '';
+  }
+
+  // Save Role Description handler
+  if (saveUserRoleBtn && userRoleDescription) {
+    saveUserRoleBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const textVal = userRoleDescription.value.trim();
+
+      if (!textVal) {
+        if (userRoleFeedback) {
+          userRoleFeedback.classList.remove('d-none');
+          userRoleFeedback.className = 'sidebar-status-msg status-error mt-2 mb-3';
+          userRoleFeedback.replaceChildren();
+          const icon = document.createElement('i');
+          icon.className = 'bi bi-exclamation-triangle-fill';
+          const span = document.createElement('span');
+          span.textContent = 'Please enter a description of your role or evaluation objectives.';
+          userRoleFeedback.appendChild(icon);
+          userRoleFeedback.appendChild(span);
+        }
+        return;
+      }
+
+      appState.account.roleDescription = textVal;
+      userRoleDescription.disabled = true;
+      isEditingDescription = false;
+
+      if (saveUserRoleBtn) saveUserRoleBtn.classList.add('d-none');
+      if (editUserRoleBtn) editUserRoleBtn.classList.remove('d-none');
+      if (cancelUserRoleBtn) cancelUserRoleBtn.classList.add('d-none');
+
+      if (userRoleFeedback) {
+        userRoleFeedback.classList.remove('d-none');
+        userRoleFeedback.className = 'sidebar-status-msg status-empty mt-2 mb-3';
+        userRoleFeedback.replaceChildren();
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-check-circle-fill text-success';
+        const span = document.createElement('span');
+        span.textContent = 'Role description saved for current session.';
+        userRoleFeedback.appendChild(icon);
+        userRoleFeedback.appendChild(span);
+      }
+
+      // Check for backend integration if endpoint exists
+      if (API_CONFIG.ROLE_ENDPOINT) {
+        try {
+          const res = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ROLE_ENDPOINT}`, {
+            method: 'POST',
+            headers: API_CONFIG.HEADERS,
+            body: JSON.stringify({ roleDescription: textVal })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.points)) {
+              appState.account.rolePoints = data.points.map((p, idx) => ({
+                id: p.id || `point-${Date.now()}-${idx}`,
+                text: typeof p === 'string' ? p : (p.text || p.label || ''),
+                isEditing: false
+              }));
+              renderRolePointsList();
+            }
+          }
+        } catch (err) {
+          console.warn('Backend role processing unavailable:', err);
+        }
+      }
+    });
+  }
+
+  // Edit Role Description handler
+  if (editUserRoleBtn && userRoleDescription) {
+    editUserRoleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isEditingDescription = true;
+      savedDescriptionTemp = appState.account.roleDescription;
+      userRoleDescription.disabled = false;
+      userRoleDescription.focus();
+
+      if (saveUserRoleBtn) saveUserRoleBtn.classList.remove('d-none');
+      if (editUserRoleBtn) editUserRoleBtn.classList.add('d-none');
+      if (cancelUserRoleBtn) cancelUserRoleBtn.classList.remove('d-none');
+      if (userRoleFeedback) userRoleFeedback.classList.add('d-none');
+    });
+  }
+
+  // Cancel Role Description editing handler
+  if (cancelUserRoleBtn && userRoleDescription) {
+    cancelUserRoleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      isEditingDescription = false;
+      userRoleDescription.value = savedDescriptionTemp;
+      userRoleDescription.disabled = true;
+
+      if (saveUserRoleBtn) saveUserRoleBtn.classList.add('d-none');
+      if (editUserRoleBtn) editUserRoleBtn.classList.remove('d-none');
+      if (cancelUserRoleBtn) cancelUserRoleBtn.classList.add('d-none');
+      if (userRoleFeedback) userRoleFeedback.classList.add('d-none');
+    });
+  }
+
+  // Add Point handler
+  if (addRolePointBtn) {
+    addRolePointBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const newId = `role-point-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      appState.account.rolePoints.push({
+        id: newId,
+        text: '',
+        isEditing: true
+      });
+      renderRolePointsList();
+    });
+  }
+
+  // Render Role Points List safely
+  function renderRolePointsList() {
+    if (!rolePointsList) return;
+    rolePointsList.replaceChildren();
+
+    if (!appState.account.rolePoints || appState.account.rolePoints.length === 0) {
+      if (rolePointsStatus) {
+        rolePointsStatus.classList.remove('d-none');
+        rolePointsStatus.replaceChildren();
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-info-circle';
+        const span = document.createElement('span');
+        span.textContent = 'No evaluation points configured yet. Add points manually or save a role description.';
+        rolePointsStatus.appendChild(icon);
+        rolePointsStatus.appendChild(span);
+      }
+      return;
+    }
+
+    if (rolePointsStatus) rolePointsStatus.classList.add('d-none');
+
+    appState.account.rolePoints.forEach((item, index) => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'role-point-item';
+
+      if (item.isEditing) {
+        // Edit Mode for individual point
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'd-flex align-items-center gap-2 flex-grow-1 me-2';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm';
+        input.value = item.text;
+        input.placeholder = 'Enter evaluation point or key criteria...';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn btn-sm btn-primary-custom text-nowrap';
+        saveBtn.innerHTML = '<i class="bi bi-check-lg"></i> Save';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-sm btn-secondary-custom text-nowrap';
+        cancelBtn.innerHTML = '<i class="bi bi-x-lg"></i> Cancel';
+
+        saveBtn.addEventListener('click', () => {
+          const val = input.value.trim();
+          if (!val) {
+            alert('Point text cannot be empty or whitespace only.');
+            return;
+          }
+          item.text = val;
+          item.isEditing = false;
+          renderRolePointsList();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+          // If adding a new blank point and canceled, remove it
+          if (!item.text) {
+            appState.account.rolePoints.splice(index, 1);
+          } else {
+            item.isEditing = false;
+          }
+          renderRolePointsList();
+        });
+
+        inputGroup.appendChild(input);
+        inputGroup.appendChild(saveBtn);
+        inputGroup.appendChild(cancelBtn);
+        itemDiv.appendChild(inputGroup);
+
+      } else {
+        // Normal Display Mode for individual point
+        const span = document.createElement('span');
+        span.className = 'role-point-text me-3';
+        span.textContent = item.text;
+
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'd-flex align-items-center gap-1 text-nowrap';
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-sm btn-secondary-custom';
+        editBtn.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete';
+
+        editBtn.addEventListener('click', () => {
+          item.isEditing = true;
+          renderRolePointsList();
+        });
+
+        deleteBtn.addEventListener('click', () => {
+          if (confirm('Are you sure you want to delete this focus point?')) {
+            appState.account.rolePoints.splice(index, 1);
+            renderRolePointsList();
+          }
+        });
+
+        btnGroup.appendChild(editBtn);
+        btnGroup.appendChild(deleteBtn);
+
+        itemDiv.appendChild(span);
+        itemDiv.appendChild(btnGroup);
+      }
+
+      rolePointsList.appendChild(itemDiv);
+    });
+  }
+
+  // Initial render of points list
+  renderRolePointsList();
+
+  // Existing Personal Information Form Submit handler
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -265,7 +983,7 @@ function initAccountSettings() {
         const icon = document.createElement('i');
         icon.className = 'bi bi-check-circle-fill text-success';
         const span = document.createElement('span');
-        span.textContent = 'Account settings saved for local session. Cloud sync will connect when backend service is online.';
+        span.textContent = 'Account settings saved for local session.';
 
         feedback.appendChild(icon);
         feedback.appendChild(span);
@@ -298,6 +1016,19 @@ function initAccountSettings() {
       if (insightRisks) insightRisks.checked = false;
       if (insightSuggestions) insightSuggestions.checked = true;
 
+      // Reset Your Role inputs
+      appState.account.roleDescription = '';
+      appState.account.rolePoints = [];
+      if (userRoleDescription) {
+        userRoleDescription.value = '';
+        userRoleDescription.disabled = false;
+      }
+      if (saveUserRoleBtn) saveUserRoleBtn.classList.remove('d-none');
+      if (editUserRoleBtn) editUserRoleBtn.classList.add('d-none');
+      if (cancelUserRoleBtn) cancelUserRoleBtn.classList.add('d-none');
+      if (userRoleFeedback) userRoleFeedback.classList.add('d-none');
+      renderRolePointsList();
+
       if (feedback) {
         feedback.classList.remove('d-none');
         feedback.className = 'sidebar-status-msg status-empty mt-3';
@@ -325,21 +1056,49 @@ function initCustomizationControls() {
   const resetAllBtn = document.getElementById('resetAllCustomizationBtn');
   const feedback = document.getElementById('customizationFeedback');
 
-  function resetSectionA() {
-    const defaultA = {
-      priority_key_points: true,
-      priority_decisions: true,
-      priority_tasks: true,
-      priority_deadlines: true,
-      priority_risks: false,
-      priority_budgets: false,
-      priority_questions: false,
-      priority_opportunities: true
-    };
-    Object.keys(defaultA).forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.checked = defaultA[id];
+  function renderPrioritiesControls() {
+    const container = document.getElementById('prioritiesContainer');
+    if (!container) return;
+
+    container.replaceChildren();
+
+    appState.customization.priorities.forEach((item) => {
+      const col = document.createElement('div');
+      col.className = 'col-12 col-sm-6';
+
+      const checkDiv = document.createElement('div');
+      checkDiv.className = 'form-check';
+
+      const input = document.createElement('input');
+      input.className = 'form-check-input';
+      input.type = 'checkbox';
+      input.id = `priority_${item.id}`;
+      input.checked = item.enabled;
+
+      input.addEventListener('change', () => {
+        item.enabled = input.checked;
+      });
+
+      const label = document.createElement('label');
+      label.className = 'form-check-label small fw-medium text-primary';
+      label.htmlFor = `priority_${item.id}`;
+      label.textContent = item.label;
+
+      checkDiv.appendChild(input);
+      checkDiv.appendChild(label);
+      col.appendChild(checkDiv);
+      container.appendChild(col);
     });
+  }
+
+  // Render priority controls initially from priorities array of objects
+  renderPrioritiesControls();
+
+  function resetSectionA() {
+    appState.customization.priorities.forEach((item) => {
+      item.enabled = true;
+    });
+    renderPrioritiesControls();
   }
 
   function resetSectionB() {
@@ -359,7 +1118,23 @@ function initCustomizationControls() {
     });
     const diplomaticStyle = document.getElementById('styleDiplomatic');
     if (diplomaticStyle) diplomaticStyle.checked = true;
+    updateResponseStyleSelection();
   }
+
+  function updateResponseStyleSelection() {
+    document.querySelectorAll('.response-style-pill').forEach((pill) => {
+      const radio = pill.querySelector('input[type="radio"]');
+      if (radio && radio.checked) {
+        pill.classList.add('selected');
+      } else {
+        pill.classList.remove('selected');
+      }
+    });
+  }
+
+  document.querySelectorAll('input[name="responseStyle"]').forEach((radio) => {
+    radio.addEventListener('change', updateResponseStyleSelection);
+  });
 
   if (resetSectionABtn) {
     resetSectionABtn.addEventListener('click', (e) => {
@@ -401,10 +1176,10 @@ function initCustomizationControls() {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
 
-      const priorityKeys = ['key_points', 'decisions', 'tasks', 'deadlines', 'risks', 'budgets', 'questions', 'opportunities'];
-      priorityKeys.forEach((key) => {
-        const el = document.getElementById(`priority_${key}`);
-        if (el) appState.customization.priorities[key] = el.checked;
+      // Sync priorities object state from DOM inputs
+      appState.customization.priorities.forEach((item) => {
+        const el = document.getElementById(`priority_${item.id}`);
+        if (el) item.enabled = el.checked;
       });
 
       const approachKeys = ['clarifying', 'followup', 'disagree', 'negotiation', 'uncover_risks', 'evidence', 'objections', 'responses'];
@@ -455,9 +1230,22 @@ async function fetchConversationsHistory() {
 
     const data = await response.json();
 
-    const conversations = Array.isArray(data) 
-      ? data 
-      : (data && Array.isArray(data.conversations) ? data.conversations : []);
+    let conversations = null;
+    if (Array.isArray(data)) {
+      conversations = data;
+    } else if (data && typeof data === 'object') {
+      if (Array.isArray(data.conversations)) {
+        conversations = data.conversations;
+      } else if (Array.isArray(data.data)) {
+        conversations = data.data;
+      } else if (Array.isArray(data.items)) {
+        conversations = data.items;
+      }
+    }
+
+    if (conversations === null) {
+      throw new Error('Invalid conversation payload structure');
+    }
 
     if (conversations.length === 0) {
       renderStatusMessage(container, UI_MESSAGES.EMPTY_HISTORY, 'status-empty');
@@ -473,9 +1261,6 @@ async function fetchConversationsHistory() {
 
 /**
  * Renders status messages in the sidebar
- * @param {HTMLElement} container 
- * @param {string} text 
- * @param {string} statusClass 
  */
 function renderStatusMessage(container, text, statusClass) {
   container.replaceChildren();
@@ -504,8 +1289,6 @@ function renderStatusMessage(container, text, statusClass) {
 
 /**
  * Renders conversation items safely into the sidebar
- * @param {HTMLElement} container 
- * @param {Array} conversations 
  */
 function renderConversationsList(container, conversations) {
   container.replaceChildren();
@@ -532,6 +1315,3 @@ function renderConversationsList(container, conversations) {
     container.appendChild(li);
   });
 }
-
-
-
