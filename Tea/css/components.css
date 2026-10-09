@@ -547,3 +547,36 @@
   color: #7A4D00 !important;
   border-color: #FFE0B2 !important;
 }
+
+/* Your Role Point List Item Styles */
+.role-point-item {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: all var(--transition-fast);
+}
+
+.role-point-item:hover {
+  border-color: var(--border-color-hover);
+}
+
+.role-point-text {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+[data-theme="light-theme"] .role-point-item {
+  background-color: #FFFFFF;
+  border-color: #E2D9E7;
+}
+
+[data-theme="light-theme"] .role-point-text {
+  color: #211326;
+}
