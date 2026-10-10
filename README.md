@@ -5,8 +5,6 @@ The official project submission repository for **DEFINE 4.0 — The World's Real
 ---
 
 # TeaPot
-![Project Cover](./assets/cover.png)
-
 ## Meeting system audit
 
 The current implementation is a FastAPI signaling relay with browser-to-browser
@@ -173,34 +171,7 @@ Describe the core idea, workflow, and key technologies used to build the solutio
 
 ---
 
-# Demo
-
-### Demo Video
-
-[Watch Project Demo](https://www.youtube.com/watch?v=VIDEO_ID)
-
-> Replace `VIDEO_ID` with your YouTube video ID.
-
-### Screenshots
-
-<!-- Add screenshots of your project here -->
-
-![Screenshot 1](./assets/screenshot-1.png)
-
-![Screenshot 2](./assets/screenshot-2.png)
-
-![Screenshot 3](./assets/screenshot-3.png)
-
----
-
-# Live Project
-
-[Visit Live Project](https://your-project-url.com/)
-
----
-
 # Technical Implementation
-
 ## Technologies Used
 
 | Category | Technologies |
@@ -213,35 +184,10 @@ Describe the core idea, workflow, and key technologies used to build the solutio
 | **DevOps / Deployment** | Technologies |
 | **Other Tools** | Technologies |
 
-## System Architecture
-
-<!-- Add your architecture diagram here -->
-
-![System Architecture](./assets/architecture.png)
-
-## Key Features
-
-- Feature 1
-- Feature 2
-- Feature 3
-- Feature 4
-- Feature 5
-
----
-
 # Setup Instructions
-
-## Prerequisites
-
-Make sure the following are installed before running the project:
-
-- Requirement 1
-- Requirement 2
-- Requirement 3
-
 ## Installation
-
 ### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
+```
