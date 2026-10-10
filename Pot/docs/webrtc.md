@@ -20,6 +20,12 @@ Signaling connectivity and media connectivity are separate. The client reports
 the `RTCPeerConnection.connectionState`; an open WebSocket alone is not treated
 as a working audio/video connection.
 
+Meeting-code holders are admitted automatically while the session is active.
+The host capability remains separate: it is required for ending the meeting
+and for changing host ownership after a reconnect. This avoids blocking
+normal participants behind a host-admission prompt without removing lifecycle
+authorization.
+
 ## Transcript event schema (protocol version 1)
 
 ```text
@@ -40,6 +46,12 @@ The backend bounds WebSocket payloads and per-meeting events, rejects invalid
 timing and empty transcript text, deduplicates event IDs, replaces partials by
 participant/session/sequence, and commits finals without the old partial. It
 does not infer missing timestamps or reorder speech based on network arrival.
+Transcript authorization also requires the socket to be admitted in the room
+and the peer ID to be registered in the corresponding meeting session. After
+reconnection the browser receives a new peer ID; queued events are rebound to
+that current authenticated ID and are flushed only after the replacement
+socket receives `room_info`. This prevents stale events from being rejected or
+sent before admission.
 
 ## ASR and privacy
 

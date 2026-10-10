@@ -2,10 +2,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from pydantic import model_validator, model_serializer, field_validator, AfterValidator
 from pathlib import Path
-from typing import Optional, Literal, Annotated
+from typing import Optional, Literal, Annotated, TypeAlias
 from functools import lru_cache
 
-type Directory = Annotated[str, AfterValidator(Path.resolve)]
+Directory: TypeAlias = Annotated[str, AfterValidator(Path.resolve)]
 
 __all__ = ["Settings", "settings"]
 
@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     # STUN server configuration
     stun_server: str = Field(default="stun:stun.l.google.com:19302")
+    analyzer_ws_url: Optional[str] = Field(default=None)
+    analyzer_user_id: Optional[str] = Field(default=None)
 
     # TURN server configuration (optional, for full NAT traversal)
     turn_server: Optional[str] = Field(default=None)

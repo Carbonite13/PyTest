@@ -93,7 +93,7 @@ class RoomManager:
             # A host refresh is authenticated by the session capability before
             # this method is called. Remove the stale socket so two host
             # identities cannot control the same room.
-            if admitted and room.host_peer_id and room.host_peer_id != peer_id:
+            if admitted and host_peer_id == peer_id and room.host_peer_id and room.host_peer_id != peer_id:
                 stale = room.peers.pop(room.host_peer_id, None)
                 if stale:
                     stale.room_id = None

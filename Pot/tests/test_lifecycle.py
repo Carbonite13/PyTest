@@ -42,6 +42,8 @@ def test_session_lifecycle_is_terminal_and_host_capability_is_private():
     assert manager.admit_participant(session.session_id, "refreshed-host")
     assert manager.admit_participant(session.session_id, "guest")
     assert session.status is SessionStatus.ACTIVE
+    guest_session, guest_admitted, reason = manager.prepare_join(session.session_id, "code-guest")
+    assert guest_session is session and guest_admitted and reason == "ok"
     assert manager.end_session(session.session_id, "guest") is None
     assert manager.end_session(session.session_id, "refreshed-host") is session
     assert manager.prepare_join(session.session_id, "new")[2] == "Meeting has ended"
@@ -105,5 +107,35 @@ def test_transcript_websocket_binds_identity_to_admitted_peer():
         event.participant_id = "forged-peer"
         await signaling._handle_transcript(peer.peer_id, SignalMessage(type="transcript", transcript=event))
         assert socket.messages[-1]["type"] == "error"
+
+    asyncio.run(run())
+
+
+def test_transcript_websocket_rejects_room_peer_missing_session_registration():
+    import asyncio
+
+    async def run():
+        rooms = RoomManager()
+        sessions = SessionManager()
+        signaling.room_manager = rooms
+        signaling.session_manager = sessions
+        socket = FakeSocket()
+        peer = rooms.register_peer(socket)
+        meeting = sessions.create_session(peer.peer_id)
+        rooms.request_join(peer.peer_id, meeting.session_id, admitted=True, host_peer_id=peer.peer_id)
+
+        event = TranscriptEvent(
+            event_id="event-unregistered",
+            meeting_id=meeting.session_id,
+            participant_id=peer.peer_id,
+            session_id="asr-session",
+            sequence_number=0,
+            event_type="final",
+            text="hello",
+            created_at=datetime.now(timezone.utc),
+        )
+        await signaling._handle_transcript(peer.peer_id, SignalMessage(type="transcript", transcript=event))
+        assert socket.messages[-1]["type"] == "error"
+        assert socket.messages[-1]["error"]["code"] == 403
 
     asyncio.run(run())

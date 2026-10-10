@@ -322,7 +322,7 @@
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
                   <div>
                     <h2 class="fs-4 fw-semibold mb-1">Pre-Join Setup</h2>
-                    <p class="text-secondary small mb-0">Configure your audio and video settings for <span class="fw-semibold text-primary" id="preJoinRoomCodeLabel"></span></p>
+                    <p class="text-secondary small mb-0">Configure optional audio and video, or join text-only without browser media permission, for <span class="fw-semibold text-primary" id="preJoinRoomCodeLabel"></span></p>
                   </div>
                 </div>
 
@@ -397,10 +397,24 @@
 
                 <!-- Text-only transcript events; microphone audio stays in the browser. -->
                 <div class="card bg-transparent border-secondary-subtle mb-3" id="transcriptPanel">
+                  <!-- Transcript Tree Visualization -->
+                  <div id="transcriptTreeContainer" class="my-4 d-none">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <h2 class="fs-5 fw-semibold mb-0">Conversation Overview</h2>
+                      <span class="tree-live-badge"><span class="tree-live-dot"></span> Live tree</span>
+                    </div>
+                    <svg id="transcriptTreeSvg" width="100%" height="600"></svg>
+                    <div id="treeStatus" class="small text-muted mt-2">Waiting for transcript data…</div>
+                    <div id="treeDetails" class="tree-details mt-2" aria-live="polite">Select a node to inspect its details.</div>
+                  </div>
                   <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                       <span class="small fw-semibold text-primary">Live transcript</span>
                       <span class="small text-muted" id="transcriptionStatus">Off</span>
+                    </div>
+                    <div class="input-group input-group-sm mb-2">
+                      <input type="text" class="form-control" id="manualTranscriptInput" placeholder="Type a transcript update for testing or unsupported browsers">
+                      <button type="button" class="btn btn-outline-primary" id="sendManualTranscriptBtn">Send</button>
                     </div>
                     <div class="small text-secondary" id="transcriptEvents" aria-live="polite">No transcript events yet.</div>
                   </div>

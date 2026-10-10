@@ -6,8 +6,12 @@
 import { API_CONFIG, UI_MESSAGES } from './modules/constants.js';
 import { WebRTCClient } from './modules/webrtcClient.js';
 import { BrowserSpeechRecognitionAdapter } from './modules/transcription.js';
+import { createTranscriptTree } from './transcriptTree.js';
 
 let rtcClient = null;
+let transcriptTree = null;
+let hasLiveMeetingState = false;
+let treeStaleTimer = null;
 
 // Local session state container for frontend prototype demonstration
 const appState = {
@@ -168,8 +172,22 @@ document.addEventListener('DOMContentLoaded', () => {
   initAccountSettings();
   initRoleManagement();
   initCustomizationControls();
-  fetchConversationsHistory();
+  initTranscriptTree();
+  const conversationList = document.getElementById('conversationList');
+  if (conversationList) renderStatusMessage(conversationList, UI_MESSAGES.EMPTY_HISTORY, 'status-empty');
 });
+
+function initTranscriptTree() {
+  transcriptTree = createTranscriptTree();
+  transcriptTree.applyState({
+    meeting_title: 'Meeting',
+    meeting_status: 'in_progress',
+    meeting_summary: 'Waiting for transcript data.'
+  });
+
+  // Live analyzer state is authoritative. The repository fixture is not
+  // served by FastAPI, so avoid requesting an unavailable cross-directory URL.
+}
 
 /**
  * Multi-Theme Management System
@@ -533,6 +551,8 @@ function initMeetingControls() {
   const toggleTranscriptionBtn = document.getElementById('toggleTranscriptionBtn');
   const transcriptionBtnIcon = document.getElementById('transcriptionBtnIcon');
   const transcriptionStatus = document.getElementById('transcriptionStatus');
+  const manualTranscriptInput = document.getElementById('manualTranscriptInput');
+  const sendManualTranscriptBtn = document.getElementById('sendManualTranscriptBtn');
   const transcriptEvents = document.getElementById('transcriptEvents');
   const partialTranscriptLines = new Map();
 
@@ -563,10 +583,16 @@ function initMeetingControls() {
       jumpOptionFeedback.appendChild(span);
 
       try {
-        if (!rtcClient) {
+        if (rtcClient?.roomId) {
+          try { rtcClient.disconnect(); } catch (error) { console.warn('Resetting previous meeting failed:', error); }
+          rtcClient = null;
+        }
+        if (!rtcClient || !rtcClient.ws || rtcClient.ws.readyState !== WebSocket.OPEN) {
+          if (rtcClient) {
+            try { rtcClient.disconnect(); } catch (error) { console.warn('Resetting stale signaling client failed:', error); }
+          }
           rtcClient = new WebRTCClient({ baseUrl: API_CONFIG.BASE_URL });
           const localPeerId = await rtcClient.connectSignaling();
-          // Store peer_id on rtcClient
           rtcClient.peerId = localPeerId;
         }
 
@@ -785,6 +811,21 @@ function initMeetingControls() {
         // Setup callbacks
         rtcClient.onStatusChange = (statusText) => {
           if (webrtcStatusLabel) webrtcStatusLabel.textContent = `Status: ${statusText}`;
+          if (/reconnect/i.test(statusText)) transcriptTree?.setStatus('Reconnecting');
+          else if (/disconnect/i.test(statusText)) transcriptTree?.setStatus('Disconnected');
+          else if (/connect/i.test(statusText)) transcriptTree?.setStatus('Connecting');
+          if (/connected|joined/i.test(statusText)) {
+            clearTimeout(treeStaleTimer);
+            treeStaleTimer = setTimeout(() => transcriptTree?.setStatus('Stale'), 30000);
+          }
+        };
+        rtcClient.onMeetingState = (state) => {
+          hasLiveMeetingState = true;
+          transcriptTree?.applyState(state);
+          clearTimeout(treeStaleTimer);
+          if (state.meeting_status !== 'completed') {
+            treeStaleTimer = setTimeout(() => transcriptTree?.setStatus('Stale'), 30000);
+          }
         };
         rtcClient.onPeerJoined = (peerId) => {
           updatePeerCountBadge();
@@ -797,7 +838,11 @@ function initMeetingControls() {
           addOrUpdateRemoteVideoTile(peerId, stream);
         };
         rtcClient.onTranscript = (event) => {
-          if (!transcriptEvents || !event) return;
+          if (!event) return;
+          transcriptTree?.ingestTranscriptEvent(event);
+          clearTimeout(treeStaleTimer);
+          treeStaleTimer = setTimeout(() => transcriptTree?.setStatus('Stale'), 30000);
+          if (!transcriptEvents) return;
           if (transcriptEvents.textContent === 'No transcript events yet.') transcriptEvents.replaceChildren();
           const key = `${event.participant_id}:${event.session_id}:${event.sequence_number}`;
           const existingPartial = partialTranscriptLines.get(key);
@@ -860,6 +905,11 @@ function initMeetingControls() {
           cleanupAndLeave();
         };
         rtcClient.onRoomInfo = (info) => {
+          if (webrtcStatusLabel) {
+            webrtcStatusLabel.textContent = info.is_host
+              ? 'Status: Connected as host'
+              : 'Status: Connected';
+          }
           if (conferenceRoomTitle) {
             conferenceRoomTitle.textContent = `Room: ${meetingCode}`;
           }
@@ -875,7 +925,26 @@ function initMeetingControls() {
         };
 
         // 1. Acquire local stream with pre-join mic and camera states
-        const stream = await rtcClient.startLocalStream({ audio: preJoinMicOn, video: preJoinCamOn });
+        let stream = null;
+        if (preJoinMicOn || preJoinCamOn) {
+          try {
+            stream = await rtcClient.startLocalStream({ audio: preJoinMicOn, video: preJoinCamOn });
+          } catch (mediaError) {
+            // Signaling and text transcripts remain usable when this browser
+            // cannot expose camera/microphone capture.
+            if (rtcClient.localStream) {
+              rtcClient.localStream.getTracks().forEach((track) => track.stop());
+              rtcClient.localStream = null;
+            }
+            if (webrtcStatusLabel) webrtcStatusLabel.textContent = 'Status: Connected (text only)';
+            if (preJoinFeedback) {
+              preJoinFeedback.className = 'sidebar-status-msg status-empty mt-3';
+              preJoinFeedback.textContent = `Media unavailable; joining text-only. ${mediaError.message}`;
+            }
+          }
+        } else if (webrtcStatusLabel) {
+          webrtcStatusLabel.textContent = 'Status: Connecting (text only)';
+        }
         if (localVideo) {
           localVideo.srcObject = stream;
         }
@@ -990,7 +1059,7 @@ function initMeetingControls() {
       }
       const adapter = new BrowserSpeechRecognitionAdapter();
       if (!adapter.isSupported()) {
-        if (transcriptionStatus) transcriptionStatus.textContent = 'Unsupported browser';
+        if (transcriptionStatus) transcriptionStatus.textContent = 'Use manual transcript input';
         return;
       }
       if (!window.confirm(`${adapter.privacyNotice}\n\nStart text-only transcription?`)) return;
@@ -1003,6 +1072,19 @@ function initMeetingControls() {
       } else if (transcriptionStatus) {
         transcriptionStatus.textContent = 'Unavailable';
       }
+    });
+  }
+
+  if (sendManualTranscriptBtn) {
+    sendManualTranscriptBtn.addEventListener('click', () => {
+      const text = manualTranscriptInput?.value.trim();
+      if (!text) return;
+      if (!rtcClient?.sendManualTranscript(text)) {
+        if (transcriptionStatus) transcriptionStatus.textContent = 'Join the meeting first';
+        return;
+      }
+      manualTranscriptInput.value = '';
+      if (transcriptionStatus) transcriptionStatus.textContent = 'Manual transcript on';
     });
   }
 
@@ -1049,6 +1131,9 @@ function initMeetingControls() {
       transcriptEvents.textContent = 'No transcript events yet.';
     }
     partialTranscriptLines.clear();
+    transcriptTree?.reset();
+    hasLiveMeetingState = false;
+    clearTimeout(treeStaleTimer);
     if (transcriptionStatus) transcriptionStatus.textContent = 'Off';
     // Remove remote videos
     document.querySelectorAll('.remote-video-tile').forEach(tile => tile.remove());
@@ -1711,57 +1796,6 @@ function initCustomizationControls() {
 }
 
 /**
- * Asynchronously Fetches Past Conversations from API
- */
-async function fetchConversationsHistory() {
-  const container = document.getElementById('conversationList');
-  if (!container) return;
-
-  renderStatusMessage(container, UI_MESSAGES.LOADING_HISTORY, 'status-loading');
-
-  try {
-    const requestUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.CONVERSATIONS_ENDPOINT}`;
-    const response = await fetch(requestUrl, {
-      method: 'GET',
-      headers: API_CONFIG.HEADERS
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    let conversations = null;
-    if (Array.isArray(data)) {
-      conversations = data;
-    } else if (data && typeof data === 'object') {
-      if (Array.isArray(data.conversations)) {
-        conversations = data.conversations;
-      } else if (Array.isArray(data.data)) {
-        conversations = data.data;
-      } else if (Array.isArray(data.items)) {
-        conversations = data.items;
-      }
-    }
-
-    if (conversations === null) {
-      throw new Error('Invalid conversation payload structure');
-    }
-
-    if (conversations.length === 0) {
-      renderStatusMessage(container, UI_MESSAGES.EMPTY_HISTORY, 'status-empty');
-    } else {
-      renderConversationsList(container, conversations);
-    }
-
-  } catch (error) {
-    console.warn('API fetch error for past conversations:', error.message || error);
-    renderStatusMessage(container, UI_MESSAGES.ERROR_HISTORY, 'status-error');
-  }
-}
-
-/**
  * Renders status messages in the sidebar
  */
 function renderStatusMessage(container, text, statusClass) {
@@ -1787,33 +1821,4 @@ function renderStatusMessage(container, text, statusClass) {
   msgDiv.appendChild(span);
   li.appendChild(msgDiv);
   container.appendChild(li);
-}
-
-/**
- * Renders conversation items safely into the sidebar
- */
-function renderConversationsList(container, conversations) {
-  container.replaceChildren();
-
-  conversations.forEach((item) => {
-    const li = document.createElement('li');
-    
-    const a = document.createElement('a');
-    a.className = 'conversation-item';
-    a.href = '#';
-    a.tabIndex = 0;
-
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'conversation-title';
-    titleSpan.textContent = item.title || item.name || item.topic || `Conversation #${item.id || ''}`;
-
-    const metaSpan = document.createElement('span');
-    metaSpan.className = 'conversation-meta';
-    metaSpan.textContent = item.date || item.created_at || item.timestamp || 'Recorded conversation';
-
-    a.appendChild(titleSpan);
-    a.appendChild(metaSpan);
-    li.appendChild(a);
-    container.appendChild(li);
-  });
 }

@@ -9,8 +9,6 @@ export const API_CONFIG = {
   // Empty means same-origin when the UI is served by FastAPI. Deployments can
   // override this at build time or pass baseUrl to WebRTCClient.
   BASE_URL: '',
-  // Endpoint for retrieving past conversation history
-  CONVERSATIONS_ENDPOINT: '/api/conversations',
   // Default request headers
   HEADERS: {
     'Accept': 'application/json',
