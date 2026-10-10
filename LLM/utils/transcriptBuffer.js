@@ -1,41 +1,63 @@
-// utils/transcriptBuffer.js
+
 import { config } from "../config.js";
 
 export class TranscriptBuffer {
-    constructor() {
-        this.buffer = "";
-        this.wordCount = 0;
+  constructor() {
+    this.buffer = "";
+    this.wordCount = 0;
+  }
+
+  addEntry(timestamp, text) {
+    if (typeof text !== "string" || !text.trim()) return;
+
+    const entry = `[${timestamp}] ${text.trim()}\n`;
+    this.buffer += entry;
+    this.wordCount += text.trim().split(/\s+/).length;
+  }
+
+  shouldTriggerAnalysis() {
+    return this.wordCount >= config.triggerWordCount;
+  }
+
+  resetCounter() {
+    this.wordCount = this.buffer.trim()
+      ? this.buffer.trim().split(/\s+/).length
+      : 0;
+  }
+
+  getSmartContext() {
+    if (!this.buffer.trim()) return "";
+
+    const words = this.buffer.trim().split(/\s+/);
+
+    if (words.length > 2500) {
+      return (
+        "...[Older conversation is summarized in the current meeting state]...\n" +
+        words.slice(-2500).join(" ")
+      );
     }
 
-    addEntry(timestamp, text) {
-        const entry = `[${timestamp}] ${text}\n`;
-        this.buffer += entry;
-        this.wordCount += text.split(" ").length;
-    }
+    return this.buffer;
+  }
 
-    shouldTriggerAnalysis() {
-        return this.wordCount >= config.triggerWordCount;
-    }
+  takeSmartContext() {
+    const context = this.getSmartContext();
 
-    resetCounter() {
-        this.wordCount = 0;
-    }
+    this.buffer = "";
+    this.wordCount = 0;
 
-    getSmartContext() {
-        const words = this.buffer.split(" ");
+    return context;
+  }
 
-        // If the buffer is getting large, only keep the most recent 2500 words.
-        // The LLM already has the "CURRENT STATE" JSON, which summarizes everything before this.
-        if (words.length > 2500) {
-            return "...[Older conversation is summarized in the CURRENT STATE JSON above]...\n\n" +
-                words.slice(-2500).join(" ");
-        }
+  restoreContext(context) {
+    if (!context?.trim()) return;
 
-        return this.buffer;
-    }
+    this.buffer = context + this.buffer;
+    this.resetCounter();
+  }
 
-    clear() {
-        this.buffer = "";
-        this.wordCount = 0;
-    }
+  clear() {
+    this.buffer = "";
+    this.wordCount = 0;
+  }
 }

@@ -121,7 +121,10 @@ class SessionManager:
             if self.verify_host_token(session_id, host_token):
                 session.host_peer_id = peer_id
                 return session, True, "ok"
-            return session, False, "Waiting for host admission"
+            # Possession of the meeting code/session identifier grants entry
+            # to the current meeting. Host-only capabilities remain required
+            # for ending the session or changing host ownership.
+            return session, True, "ok"
 
     def admit_participant(self, session_id: str, peer_id: str) -> bool:
         with self._lock:

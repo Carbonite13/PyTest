@@ -62,6 +62,14 @@ admission, and the host capability protects host-only operations. Deployments
 with user authentication should bind the peer ID to that identity before
 exposing the API publicly.
 
+When the Node analyzer is running, configure `ANALYZER_WS_URL` and its
+Supabase service user UUID in `ANALYZER_USER_ID`. The FastAPI signaling route
+opens one analyzer connection per room, forwards accepted transcript events
+using the analyzer's existing `{type: "transcript", text, timestamp}` envelope,
+and broadcasts each analyzer `{type: "update", data}` state response to the
+room. If either setting is absent, signaling continues without analysis rather
+than inventing an identity or silently changing transcript behavior.
+
 ## Operational constraints
 
 - Copy the existing `Pot/.env` settings for `PROFILE`, application paths, and

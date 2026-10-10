@@ -1,30 +1,39 @@
-﻿import { Groq } from "groq-sdk";
+﻿
+import { Groq } from "groq-sdk";
 import { config } from "../config.js";
 
-const groq = new Groq({ apiKey: config.groqApiKey });
+if (!config.groqApiKey) {
+  throw new Error("GROQ_API_KEY is missing from .env");
+}
+
+const groq = new Groq({
+  apiKey: config.groqApiKey
+});
 
 const SYSTEM_PROMPT = `
-You are a real-time meeting analyzer.
+You are a real-time meeting analysis assistant.
 
-Update the meeting state using the latest transcript.
+Analyze the new transcript and update the existing meeting state.
 
 RULES:
-1. Keep existing topics unless the discussion changes.
-2. Give each topic 2-4 short summary points.
-3. Each summary point must be a short sentence suitable for a flowchart node.
-4. Keep the overall meeting_summary to 1-2 short sentences.
-5. Extract clear decisions and action items.
-6. Use only these nature values:
+1. Preserve existing topics and IDs when possible.
+2. Create new topics only when the discussion introduces them.
+3. Give each topic 2-4 short summary points.
+4. Each point must express one idea in a short sentence.
+5. Keep meeting_summary to 1-2 short sentences.
+6. Extract decisions and action items explicitly stated.
+7. Never invent names, deadlines, decisions, or facts.
+8. Use only these nature values:
    decision, brainstorming, informational,
    problem_solving, planning, review.
-7. Do not invent information, owners, or deadlines.
-8. Preserve existing topic IDs where possible.
-9. Return valid JSON only.
+9. Use "active" for ongoing topics and "completed"
+   only when the transcript supports completion.
+10. Return valid JSON only. Do not use Markdown fences.
 
 Return this structure:
 {
   "meeting_title": "Meeting title",
-  "meeting_summary": "Brief overall summary.",
+  "meeting_summary": "Short overall summary.",
   "meeting_status": "in_progress",
   "topics": [
     {
@@ -36,47 +45,60 @@ Return this structure:
       "end_time": "ongoing",
       "summary_points": [
         "Complete the frontend.",
-        "Test the dashboard.",
-        "Review progress on Friday."
+        "Test the dashboard."
       ],
-      "action_items": [
-        "- [Alice]: Test the dashboard (Friday)"
-      ],
+      "action_items": [],
       "branched_from": null
     }
   ]
 }
-
-The example values are illustrative. Use only facts
-supported by the actual transcript.
 `;
+
 export async function analyzeTranscript(currentState, recentTranscript) {
-  const userPrompt = `CURRENT STATE:
+  if (!recentTranscript?.trim()) {
+    throw new Error("No transcript available for analysis.");
+  }
+
+  const userPrompt = `
+CURRENT MEETING STATE:
 ${JSON.stringify(currentState)}
 
 NEW TRANSCRIPT:
 ${recentTranscript}
 
-Analyze and return UPDATED JSON.`;
+Return the updated meeting state as JSON.
+`;
 
   try {
     const response = await groq.chat.completions.create({
+      model: config.groqModel,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt }
       ],
-      model: config.groqModel,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
+      response_format: { type: "json_object" }
     });
 
-    let raw = response.choices[0]?.message?.content || "";
-    raw = raw.replace(/^```json\n?|\n?```$/g, "").trim();
-    raw = raw.replace(/^```\n?|\n?```$/g, "").trim();
+    const raw = response.choices[0]?.message?.content;
 
-    return JSON.parse(raw);
+    if (!raw) {
+      throw new Error("Groq returned an empty response.");
+    }
+
+    const result = JSON.parse(raw);
+
+    if (!Array.isArray(result.topics)) {
+      throw new Error("Groq response is missing the topics array.");
+    }
+
+    result.meeting_summary ??= currentState.meeting_summary ?? "";
+    result.transcript = currentState.transcript ?? "";
+
+    return result;
   } catch (err) {
-    console.error("❌ Groq analysis failed:", err.message);
+    console.error("Groq analysis failed:", err.message);
     throw err;
   }
 }

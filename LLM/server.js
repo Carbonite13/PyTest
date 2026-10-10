@@ -1,5 +1,4 @@
-// server.js
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Bypass strict SSL for corporate networks/proxies
+
 import express from "express";
 import { WebSocketServer } from "ws";
 import { config } from "./config.js";
@@ -7,97 +6,179 @@ import { analyzeTranscript } from "./services/groqService.js";
 import { StateManager } from "./stateManager.js";
 import { TranscriptBuffer } from "./utils/transcriptBuffer.js";
 import { logger } from "./utils/logger.js";
-import { initDb } from "./supabase.js";
+
 const app = express();
+
+app.get("/", (_req, res) => {
+  res.json({ status: "Meeting Analyzer running" });
+});
+
 const server = app.listen(config.port, () => {
-    logger.success(`Server running on port ${config.port}`);
+  logger.success(`Server running on port ${config.port}`);
 });
 
 const wss = new WebSocketServer({ server });
 
-// Initialize services
-const stateManager = new StateManager();
-const transcriptBuffer = new TranscriptBuffer();
-let isProcessing = false;
+wss.on("connection", async (ws, req) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const userId = url.searchParams.get("userId")?.trim();
 
-// Broadcast to all connected UI clients
-function broadcastToUI() {
-    const payload = JSON.stringify({
+  // A user ID is required before creating a meeting.
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!userId || !uuidPattern.test(userId)) {
+    ws.close(1008, "A valid user UUID is required");
+    return;
+  }
+
+  const stateManager = new StateManager(userId);
+  const transcriptBuffer = new TranscriptBuffer();
+
+  let isProcessing = false;
+  let analysisPending = false;
+
+  function sendUpdate() {
+    if (ws.readyState === 1) {
+      ws.send(JSON.stringify({
         type: "update",
         data: stateManager.getState()
-    });
+      }));
+    }
+  }
 
-    wss.clients.forEach((client) => {
-        if (client.readyState === 1) { // 1 means OPEN
-            client.send(payload);
-        }
-    });
-}
+  async function triggerAnalysis() {
+    if (isProcessing) {
+      analysisPending = true;
+      return;
+    }
 
-// Core analysis function
-async function triggerAnalysis() {
-    if (isProcessing) return;
     isProcessing = true;
+    let failed = false;
+    let failedBatch = "";
 
     try {
-        logger.info("Starting Groq analysis...");
-        const currentState = stateManager.getState();
-        const transcript = transcriptBuffer.getSmartContext(); // NEW
+      do {
+        analysisPending = false;
+        failedBatch = "";
 
-        const newState = await analyzeTranscript(currentState, transcript);
-        stateManager.updateState(newState);
-        broadcastToUI();
+        const transcript = transcriptBuffer.takeSmartContext();
 
-        logger.success(`Analysis complete. ${newState.topics.length} topics identified.`);
+        if (!transcript.trim()) break;
+
+        failedBatch = transcript;
+
+        logger.info(`Analyzing meeting for user ${userId}`);
+
+        const newState = await analyzeTranscript(
+          stateManager.getState(),
+          transcript
+        );
+
+        await stateManager.updateState(newState);
+
+        failedBatch = "";
+        sendUpdate();
+
+        logger.success(
+          `Analysis complete: ${(newState.topics || []).length} topics`
+        );
+      } while (
+        analysisPending ||
+        transcriptBuffer.shouldTriggerAnalysis()
+      );
     } catch (err) {
-        logger.error(`Analysis failed: ${err.message}`);
+      failed = true;
+      logger.error(`Analysis failed: ${err.message}`);
+
+      if (failedBatch) {
+        transcriptBuffer.restoreContext(failedBatch);
+      }
     } finally {
-        isProcessing = false;
+      isProcessing = false;
+
+      // Do not repeatedly retry a failed batch.
+      if (
+        !failed &&
+        (analysisPending || transcriptBuffer.shouldTriggerAnalysis())
+      ) {
+        setImmediate(() => {
+          void triggerAnalysis();
+        });
+      }
     }
-}
+  }
 
-// Handle WebSocket connections
-wss.on("connection", (ws) => {
-    logger.info("Client connected");
+  try {
+    await stateManager.initializeMeeting();
+    sendUpdate();
+    logger.info(`Client connected for user ${userId}`);
+  } catch (err) {
+    logger.error(`Meeting initialization failed: ${err.message}`);
+    ws.close(1011, "Could not initialize meeting");
+    return;
+  }
 
-    ws.on("message", (message) => {
-        try {
-            const data = JSON.parse(message.toString());
+  ws.on("message", async (message) => {
+    try {
+      const data = JSON.parse(message.toString());
 
-            // 1. Handle incoming transcript from STT or Mock Script
-            if (data.type === "transcript") {
-                transcriptBuffer.addEntry(data.timestamp, data.text);
-                logger.data(`Buffer: ${transcriptBuffer.wordCount} words`);
+      switch (data.type) {
+        case "transcript": {
+          if (typeof data.text !== "string" || !data.text.trim()) {
+            break;
+          }
 
-                if (transcriptBuffer.shouldTriggerAnalysis() && !isProcessing) {
-                    transcriptBuffer.resetCounter();
-                    triggerAnalysis();
-                }
+          const timestamp =
+            data.timestamp || new Date().toISOString();
+
+          const entry = `[${timestamp}] ${data.text.trim()}`;
+
+          // Persist directly to Supabase.
+          await stateManager.appendTranscript(entry);
+
+          transcriptBuffer.addEntry(timestamp, data.text.trim());
+
+          logger.data(
+            `Buffer: ${transcriptBuffer.wordCount} words`
+          );
+
+          sendUpdate();
+
+          if (transcriptBuffer.shouldTriggerAnalysis()) {
+            if (isProcessing) {
+              analysisPending = true;
+            } else {
+              await triggerAnalysis();
             }
+          }
 
-            // 2. Handle UI requesting current state on load
-            if (data.type === "get_state") {
-                ws.send(JSON.stringify({
-                    type: "update",
-                    data: stateManager.getState()
-                }));
-            }
-
-            // 3. Handle meeting reset (e.g., starting a brand new meeting)
-            if (data.type === "reset_meeting") {
-                stateManager.reset();
-                transcriptBuffer.clear();
-                broadcastToUI();
-                logger.info("Meeting state reset");
-            }
-        } catch (err) {
-            logger.error(`Message handling error: ${err.message}`);
+          break;
         }
-    });
 
-    ws.on("close", () => {
-        logger.info("Client disconnected");
-    });
+        case "get_state":
+          sendUpdate();
+          break;
+
+        case "reset_meeting":
+          await stateManager.reset();
+          transcriptBuffer.clear();
+          analysisPending = false;
+          sendUpdate();
+          logger.info("New meeting created");
+          break;
+
+        default:
+          logger.info(`Unknown message type: ${data.type}`);
+      }
+    } catch (err) {
+      logger.error(`Message handling error: ${err.message}`);
+    }
+  });
+
+  ws.on("close", () => {
+    logger.info(`Client disconnected for user ${userId}`);
+  });
 });
 
-logger.info(" Meeting Analyzer ready and waiting for connections...");
+logger.info("Meeting Analyzer ready and waiting for connections...");

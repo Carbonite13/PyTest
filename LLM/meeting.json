@@ -1,23 +1,122 @@
 {
-  "meeting_id": "b0db41cf-e978-43a6-b66d-33be18b13de8",
-  "meeting_title": "Jane Doe's Meeting",
-  "meeting_status": "in_progress",
-  "started_at": "2026-10-09T17:08:17.751Z",
-  "last_updated": "2026-10-09T17:08:18.985Z",
+  "transcript": "[2026-10-09T18:30:21.130Z] 00:00:00] Maya (Meeting Lead): Good morning, everyone. Let’s get\nstarted. We have five things to cover today: project progress, the\nlaunch budget, marketing, team responsibilities, and a few risks. Please\nkeep updates brief, and let’s finish with clear action items.\n\n[00:00:18] Arun (Developer): The dashboard is about seventy percent\ncomplete. The main pages are working, and the meeting summary panel is\nconnected to the test data. I still need to improve the loading state\nand handle cases where the transcript is empty.\n\n[00:00:34] Maya: Is the current timeline still realistic?\n\n[00:00:37] Arun: Yes, if we finish testing by Thursday. I can complete\nthe loading state tomorrow and ask Priya to test the empty-transcript\ncase. The larger issue is that live updates sometimes arrive twice, so I\nwant to check the WebSocket event handling before we call it ready.\n\n[00:00:57] Priya (QA): I’ll prepare a short test checklist today. It\nwill cover connecting, sending transcript text, receiving an update,\nresetting a meeting, and checking that the summary is saved. I’ll also\ntest a long transcript with several topics.\n\n[00:01:16] Maya: Great. Let’s move to the budget. Finance has approved\nthe current development budget, but we have very little room for extra\ncloud services. We should avoid adding paid tools unless they solve a\nclear problem.\n\n[00:01:31] Daniel (Finance): Correct. The current estimate covers\ndevelopment and basic testing. If we need additional hosting, we should\ncompare the monthly cost before choosing a provider. Please send me the\nexpected usage and storage requirements by Wednesday.\n\n[00:01:47] Maya: Decision: we won’t add a new paid service this week.\nDaniel will review the hosting options after receiving the estimates.\n\n[00:01:58] Leena (Marketing): For marketing, I suggest a small\ndemonstration video showing how a meeting transcript becomes short\nsummary points. We can also prepare a one-page overview for people who\nwant to understand the product quickly.\n\n[00:02:13] Maya: Who is the main audience?\n\n[00:02:16] Leena: Student project teams and small organizations that\nhave frequent discussions and need a quick record of decisions. We\nshould focus the message on saving time and making action items easier\nto find, rather than promising perfect transcription.\n\n[00:02:33] Arun: We should make sure the demo uses fictional meeting\ndata. We shouldn’t display real meeting transcripts or personal details.\n\n[00:02:42] Leena: Agreed. I’ll draft the overview and video outline by\nFriday. Once the dashboard is stable, we can record the demo.\n\n[00:02:55] Maya: Next, responsibilities. We have overlapping work on\ntesting and documentation. Priya will own the test checklist. Arun will\nhandle the dashboard fixes and WebSocket issue. Leena will prepare the\nmarketing materials. Daniel will review the hosting costs. I’ll combine\nthe final status into one project update.\n\n[00:03:16] Priya: One concern: we don’t yet have a clear process for\nreporting bugs. I suggest a shared issue list with a title, steps to\nreproduce, expected result, actual result, and priority.\n\n[00:03:30] Maya: Good idea. Decision: use a shared issue list for\ntesting. Priya can create it today, and everyone should add problems\nthere instead of sending them in separate messages.\n\n[00:03:42] Daniel: There is also a schedule risk. If the WebSocket\nproblem takes longer than expected, the demo recording could slip. Could\nwe prepare a backup using a saved transcript?\n\n[00:03:54] Arun: Yes. We can keep a sample transcript ready and use it\nto demonstrate the analysis flow if live input fails. That won’t replace\nfixing the live connection, but it gives us a fallback for the\npresentation.\n\n[00:04:08] Maya: Let’s record that as a risk and mitigation: live\nupdates may be unstable, so we will prepare a saved-transcript fallback\nwhile still testing the real-time path.\n\n[00:04:21] Leena: Before we close, can we agree on the launch message? I\nrecommend saying the tool organizes discussion into topics, short\nsummaries, and action items. We should clearly state that users need to\nreview the generated notes for accuracy.\n\n[00:04:37] Maya: Agreed. We’ll describe it as an assistant for meeting\nnotes, not as a replacement for human review.\n\n[00:04:47] Priya: Quick recap: I’ll create the test checklist and shared\nissue list today. Arun will fix loading and duplicate-update issues,\nthen test the transcript flow. Daniel needs usage estimates by\nWednesday. Leena will deliver the overview and demo outline by Friday.\n\n[00:05:03] Maya: Thanks, everyone. Our target is to finish the main\nfixes and testing by Thursday, review the marketing materials on Friday,\nand decide whether we’re ready for the demo at our next meeting. Please\nupdate the issue list as you complete tasks. Meeting closed.",
+  "meeting_summary": "Project progress, budget, marketing, responsibilities, risks, and launch messaging were discussed with action items set for each area.",
+  "meeting_id": null,
+  "meeting_title": "Anonymous User's Meeting",
+  "meeting_status": "completed",
+  "started_at": "2026-10-09T18:29:20.746Z",
+  "last_updated": "2026-10-09T18:30:38.278Z",
   "topics": [
     {
       "topic_id": 1,
-      "topic_name": "Q4 Review",
-      "nature": "discussion",
-      "status": "completed",
-      "start_time": "10:00",
-      "end_time": "10:15",
+      "topic_name": "Project Progress",
+      "nature": "informational",
+      "status": "active",
+      "start_time": "00:00:00",
+      "end_time": "ongoing",
       "summary_points": [
-        "Good quarter"
+        "Dashboard 70% complete",
+        "Loading state improvement needed",
+        "Empty transcript handling required",
+        "Duplicate WebSocket updates issue"
       ],
       "action_items": [
-        "Celebrate"
+        "Arun to complete loading state tomorrow",
+        "Arun to ask Priya to test empty transcript case",
+        "Arun to fix duplicate update issue",
+        "Priya to test empty transcript case"
       ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 2,
+      "topic_name": "Launch Budget",
+      "nature": "decision",
+      "status": "active",
+      "start_time": "00:01:16",
+      "end_time": "ongoing",
+      "summary_points": [
+        "Budget approved",
+        "No new paid services this week",
+        "Hosting cost review pending estimates"
+      ],
+      "action_items": [
+        "Daniel to send usage estimates by Wednesday",
+        "Daniel to review hosting options after estimates"
+      ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 3,
+      "topic_name": "Marketing",
+      "nature": "planning",
+      "status": "active",
+      "start_time": "00:01:58",
+      "end_time": "ongoing",
+      "summary_points": [
+        "Demo video and one-page overview planned",
+        "Target audience: student teams and small orgs",
+        "Focus on time savings and action item visibility",
+        "Use fictional meeting data"
+      ],
+      "action_items": [
+        "Leena to draft overview and video outline by Friday",
+        "Leena to record demo after dashboard stable"
+      ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 4,
+      "topic_name": "Responsibilities",
+      "nature": "planning",
+      "status": "active",
+      "start_time": "00:02:55",
+      "end_time": "ongoing",
+      "summary_points": [
+        "Priya owns test checklist",
+        "Arun handles dashboard fixes and WebSocket issue",
+        "Leena prepares marketing materials",
+        "Daniel reviews hosting costs",
+        "Maya compiles final status update"
+      ],
+      "action_items": [
+        "Priya to create test checklist and shared issue list today",
+        "Arun to fix loading and duplicate-update issues, then test transcript flow",
+        "Daniel to provide usage estimates by Wednesday",
+        "Leena to deliver overview and demo outline by Friday"
+      ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 5,
+      "topic_name": "Risks & Mitigation",
+      "nature": "problem_solving",
+      "status": "active",
+      "start_time": "00:03:42",
+      "end_time": "ongoing",
+      "summary_points": [
+        "WebSocket issue risk identified",
+        "Saved transcript fallback prepared",
+        "Risk recorded and mitigation planned"
+      ],
+      "action_items": [
+        "Keep sample transcript ready as fallback",
+        "Test fallback during demo"
+      ],
+      "branched_from": null
+    },
+    {
+      "topic_id": 6,
+      "topic_name": "Launch Message",
+      "nature": "informational",
+      "status": "active",
+      "start_time": "00:04:21",
+      "end_time": "ongoing",
+      "summary_points": [
+        "Tool organizes discussion into topics, summaries, and action items",
+        "Users must review generated notes for accuracy"
+      ],
+      "action_items": [],
       "branched_from": null
     }
   ]

@@ -16,6 +16,96 @@ server rejects raw audio uploads. See [Pot/docs/backend_architecture.md](Pot/doc
 [Pot/docs/webrtc.md](Pot/docs/webrtc.md), and [Pot/docs/endpoints.md](Pot/docs/endpoints.md)
 for lifecycle, signaling, privacy, deployment, and testing details.
 
+## Local development
+
+### Prerequisites
+
+- Python 3.11, 3.12, or 3.13
+- Node.js 22 or newer
+- Poetry 2 or newer
+- A Supabase project and Groq API key for live analysis
+
+The supported Python range is declared in
+[pyproject.toml](./pyproject.toml). Python 3.11 is used by the current test
+environment.
+
+### FastAPI signaling service
+
+1. Copy `Pot/config/.env.example` to `Pot/.env`.
+2. Fill in the required application and database metadata fields.
+3. Install the server and test dependency groups:
+
+   ```powershell
+   poetry install --with server,test
+   ```
+
+4. Run the API:
+
+   ```powershell
+   python -m Pot.main
+   ```
+
+   The development server listens on `0.0.0.0:9030`, so another device on
+   the same Wi-Fi can open the frontend through the host computer's LAN
+   address:
+
+   ```text
+   http://<host-lan-ip>:9030/static/index.html
+   ```
+
+   On Windows, find the Wi-Fi address with:
+
+   ```powershell
+   Get-NetIPAddress -AddressFamily IPv4 |
+     Where-Object {$_.InterfaceAlias -match 'Wi-Fi' -and $_.IPAddress -notlike '169.254.*'} |
+     Select-Object -ExpandProperty IPAddress
+   ```
+
+   Both devices must be on the same network, and Windows Firewall must allow
+   inbound TCP traffic on port `9030` for the selected private network. Do
+   not use `localhost` or `127.0.0.1` on the joining device.
+
+### Node meeting analyzer
+
+1. Install dependencies:
+
+   ```powershell
+   cd LLM
+   npm install
+   ```
+
+2. Create `LLM/.env` with the existing analyzer settings, including
+   `GROQ_API_KEY`, Supabase credentials, and `PORT` (default `3000`).
+3. Start the analyzer:
+
+   ```powershell
+   npm run dev
+   ```
+
+4. Set these values in `Pot/.env` so FastAPI can bridge the existing analyzer
+   WebSocket without exposing a second browser connection:
+
+   ```env
+   ANALYZER_WS_URL=ws://localhost:3000
+   ANALYZER_USER_ID=<Supabase user UUID>
+   ```
+
+The browser sends transcript events to FastAPI. FastAPI forwards accepted
+events to the analyzer and broadcasts structured analyzer updates back to the
+meeting room. If either bridge setting is absent, WebRTC signaling continues
+without live AI analysis.
+
+### Tests
+
+Run the backend tests with:
+
+```powershell
+python -m pytest -q Pot\tests
+```
+
+The tests require the non-secret required fields from `Pot/.env` to be
+available as environment variables or in the local environment file.
+
 ## Team Information
 
 - **Team Name**: PyTest

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from Pot.config import settings
 from Pot.core.log import module_log
+from Pot.core.analysis import analysis_bridge
 from Pot.core.room import room_manager
 from Pot.core.session import SessionStatus, session_manager
 from Pot.core.transcript import transcript_service
@@ -145,9 +146,10 @@ async def _handle_join(peer_id: str, msg: SignalMessage):
     if session.status == SessionStatus.ENDED:
         await _send_error(peer_id, 410, reason)
         return
+    is_host = session.host_peer_id == peer_id
     existing_room = room_manager.get_room(msg.join.room_id)
     already_admitted = bool(existing_room and peer_id in existing_room.peers)
-    if admitted and existing_room and existing_room.host_peer_id and existing_room.host_peer_id != peer_id:
+    if is_host and existing_room and existing_room.host_peer_id and existing_room.host_peer_id != peer_id:
         stale_host = room_manager.get_peer(existing_room.host_peer_id)
         if stale_host:
             try:
@@ -162,6 +164,7 @@ async def _handle_join(peer_id: str, msg: SignalMessage):
         return
 
     session_manager.admit_participant(msg.join.room_id, peer_id)
+    await analysis_bridge.start(msg.join.room_id, _publish_analysis_update)
     await room_manager.send_to_peer(peer_id, {"type": SignalType.ROOM_INFO.value, "room_id": room.room_id, "is_host": room.host_peer_id == peer_id, "peers": [p.info() for p in room.peers.values() if p.peer_id != peer_id], "ice_servers": _ice_servers()})
     if not already_admitted:
         await room_manager.broadcast_to_room(room.room_id, {"type": SignalType.PEER_JOINED.value, "peer_event": {"peer_id": peer_id, "display_name": room.peers[peer_id].display_name, "room_id": room.room_id}}, exclude_peer_id=peer_id)
@@ -241,8 +244,17 @@ async def _handle_transcript(peer_id: str, msg: SignalMessage):
     if not peer or not peer.room_id or not peer.admitted or not event:
         await _send_error(peer_id, 403, "Transcript requires an admitted meeting participant")
         return
-    if event.meeting_id != peer.room_id or event.participant_id != peer_id:
-        await _send_error(peer_id, 403, "Transcript identity does not match the authenticated participant")
+    session = session_manager.get_session(event.meeting_id)
+    participant_registered = bool(session and peer_id in session.participant_ids)
+    if event.meeting_id != peer.room_id or event.participant_id != peer_id or not participant_registered:
+        logger.warning(
+            "Rejected transcript authorization: admitted=%s room_match=%s participant_match=%s registered=%s",
+            peer.admitted,
+            event.meeting_id == peer.room_id,
+            event.participant_id == peer_id,
+            participant_registered,
+        )
+        await _send_error(peer_id, 403, "Sender is not an authorized meeting participant")
         return
     if event.session_id == "":
         await _send_error(peer_id, 400, "Transcript session_id is required")
@@ -251,7 +263,12 @@ async def _handle_transcript(peer_id: str, msg: SignalMessage):
     if not accepted:
         await _send_error(peer_id, 409 if reason.startswith("duplicate") or reason == "final_already_committed" else 400, reason)
         return
+    await analysis_bridge.send_transcript(peer.room_id, event.model_dump(mode="json"))
     await room_manager.broadcast_to_room(peer.room_id, {"type": SignalType.TRANSCRIPT.value, "transcript": event.model_dump(mode="json")})
+
+
+async def _publish_analysis_update(room_id: str, message: dict) -> None:
+    await room_manager.broadcast_to_room(room_id, message)
 
 
 async def _cleanup_peer(peer_id: str):
@@ -267,5 +284,6 @@ async def _cleanup_peer(peer_id: str):
     if meeting_ended:
         await _terminate_room(room_id, {"type": "session_ended", "session_id": room_id, "ended_by": peer_id, "message": "The meeting host has disconnected."})
         transcript_service.clear_meeting(room_id)
+        await analysis_bridge.stop(room_id)
     else:
         await room_manager.broadcast_to_room(room_id, {"type": SignalType.PEER_LEFT.value, "peer_event": {"peer_id": peer_id, "display_name": display_name, "room_id": room_id}})

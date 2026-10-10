@@ -30,6 +30,8 @@ export class WebRTCClient {
     this.transcription = null;
     this.transcriptQueue = [];
     this.maxTranscriptQueue = 128;
+    this.manualTranscriptSequence = 0;
+    this.admitted = false;
     this.reconnectAttempts = 0;
     this.reconnectTimer = null;
 
@@ -39,6 +41,7 @@ export class WebRTCClient {
     this.onStatusChange = options.onStatusChange || (() => {});
     this.onError = options.onError || (() => {});
     this.onTranscript = options.onTranscript || (() => {});
+    this.onMeetingState = options.onMeetingState || (() => {});
     this.onWaitingForHost = options.onWaitingForHost || (() => {});
     this.onJoinRequest = options.onJoinRequest || (() => {});
     this.onJoinRejected = options.onJoinRejected || (() => {});
@@ -99,7 +102,6 @@ export class WebRTCClient {
             this.peerId = message.peer_id;
             this.reconnectAttempts = 0;
             resolve(this.peerId);
-            this.flushTranscriptQueue();
           }
         } catch (error) {
           console.error('[WebRTC] Signaling message failed:', error);
@@ -117,6 +119,7 @@ export class WebRTCClient {
         this.onStatusChange('Signaling disconnected');
         this.ws = null;
         this.peerId = null;
+        this.admitted = false;
         if (!this.closing && this.roomId) this.scheduleReconnect();
       };
     }).finally(() => { this.connectPromise = null; });
@@ -142,6 +145,7 @@ export class WebRTCClient {
   joinRoom(roomId, options = {}) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error('Signaling WebSocket is not connected');
     this.roomId = roomId;
+    this.admitted = false;
     this.hostToken = options.hostToken || this.hostToken;
     this.displayName = options.displayName || this.displayName;
     this.sendSignal({ type: 'join', join: { room_id: roomId, display_name: this.displayName, host_token: this.hostToken } });
@@ -169,6 +173,7 @@ export class WebRTCClient {
         this.peerId = message.peer_id;
         break;
       case 'waiting_for_host':
+        this.admitted = false;
         this.onStatusChange('Waiting for host admission...');
         this.onWaitingForHost();
         break;
@@ -179,7 +184,9 @@ export class WebRTCClient {
         this.onJoinRejected(message.message || 'Join request rejected');
         break;
       case 'room_info':
+        this.admitted = true;
         this.onRoomInfo(message);
+        this.flushTranscriptQueue();
         for (const remote of message.peers || []) this.onPeerJoined(remote.peer_id, remote);
         break;
       case 'session_ended':
@@ -218,6 +225,10 @@ export class WebRTCClient {
       }
       case 'transcript':
         this.onTranscript(message.transcript);
+        break;
+      case 'update':
+      case 'meeting_update':
+        if (message.data && typeof message.data === 'object') this.onMeetingState(message.data);
         break;
       case 'error':
         this.onError(message.error?.message || message.message || 'Signaling error');
@@ -334,15 +345,45 @@ export class WebRTCClient {
   }
 
   sendTranscriptEvent(event) {
-    const message = { type: 'transcript', transcript: event };
-    if (!this.sendSignal(message)) {
+    if (!this.roomId) return false;
+    const transcript = { ...event, meeting_id: this.roomId, participant_id: this.peerId || event.participant_id };
+    const message = { type: 'transcript', transcript };
+    if (!this.admitted || !this.sendSignal(message)) {
       if (this.transcriptQueue.length >= this.maxTranscriptQueue) this.transcriptQueue.shift();
       this.transcriptQueue.push(message);
     }
+    return true;
+  }
+
+  sendManualTranscript(text) {
+      const value = typeof text === 'string' ? text.trim() : '';
+      if (!value || !this.roomId || !this.peerId || !this.admitted) return false;
+      const event = {
+        event_id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        meeting_id: this.roomId,
+        participant_id: this.peerId,
+        session_id: `manual-${this.peerId}`,
+        sequence_number: this.manualTranscriptSequence++,
+        event_type: 'final',
+        text: value,
+        start_time: null,
+        end_time: null,
+        created_at: new Date().toISOString(),
+        protocol_version: '1'
+      };
+      return this.sendSignal({ type: 'transcript', transcript: event });
   }
 
   flushTranscriptQueue() {
-    while (this.transcriptQueue.length && this.ws?.readyState === WebSocket.OPEN) this.sendSignal(this.transcriptQueue.shift());
+    while (this.transcriptQueue.length && this.admitted && this.ws?.readyState === WebSocket.OPEN) {
+      const message = this.transcriptQueue.shift();
+      message.transcript = {
+        ...message.transcript,
+        meeting_id: this.roomId,
+        participant_id: this.peerId
+      };
+      this.sendSignal(message);
+    }
   }
 
   toggleAudio() {
@@ -381,6 +422,7 @@ export class WebRTCClient {
     this.localStream = null;
     this.roomId = null;
     this.hostToken = null;
+    this.admitted = false;
     this.onStatusChange('Left meeting');
   }
 

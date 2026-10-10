@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Analyzer WebSocket Test Client</title>
+<style>
+:root{font-family:system-ui,Segoe UI,sans-serif;color:#182230;background:#f4f6f9}
+body{margin:0;padding:24px}main{max-width:1000px;margin:auto}
+h1{margin:0 0 6px;font-size:1.7rem}.sub,.hint{color:#596579}
+.card{background:white;border:1px solid #dfe5ec;border-radius:12px;padding:18px;margin:14px 0}
+label{display:block;font-weight:650;margin:10px 0 6px}
+input,textarea{box-sizing:border-box;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+textarea{min-height:115px;resize:vertical}
+button{border:0;border-radius:8px;padding:10px 14px;font:inherit;font-weight:650;cursor:pointer;background:#1f2937;color:white;margin:8px 6px 0 0}
+button.secondary{background:#e8edf3;color:#1f2937}button.danger{background:#b42318}
+button:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.row>div{flex:1;min-width:220px}.status{display:inline-block;border-radius:999px;padding:5px 10px;font-size:.9rem;font-weight:700;background:#fee4e2;color:#b42318}
+.status.connected{background:#dcfae6;color:#067647}
+pre{background:#101828;color:#e6edf5;padding:14px;border-radius:8px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;min-height:90px}
+.events{max-height:220px;overflow:auto}
+</style>
+</head>
+<body>
+<main>
+    
+<label for="userId">Supabase User ID</label>
+<input
+  id="userId"
+  type="text"
+  placeholder="Enter your Supabase user UUID"
+  required
+/>
+<button onclick="connectToServer()">Connect</button>
+
+<h1>Meeting Analyzer — WebSocket Test Client</h1>
+<p class="sub">A temporary browser client for testing your local meeting analyzer while the frontend is being built.</p>
+<section class="card">
+<div class="row"><div><label for="wsUrl">WebSocket server URL</label><input id="wsUrl" value="ws://localhost:3000" spellcheck="false"></div>
+<div><span id="status" class="status">Disconnected</span><div><button id="connectBtn">Connect</button><button id="disconnectBtn" class="secondary" disabled>Disconnect</button></div></div></div>
+<p class="hint">Start your Node server first with <code>npm run dev</code>. Change the port above if needed.</p>
+</section>
+<section class="card">
+<h2>Send transcript</h2><label for="transcript">Transcript text</label>
+<textarea id="transcript" placeholder="Type or paste meeting transcript text here..."></textarea>
+<button id="sendBtn" disabled>Send transcript</button><button id="sampleBtn" class="secondary" disabled>Send sample (over 30 words)</button>
+<p class="hint">Automatic Groq analysis starts when the configured word-count threshold is reached. Send multiple transcript messages if needed.</p>
+</section>
+<section class="card"><h2>Meeting controls</h2>
+<button id="stateBtn" class="secondary" disabled>Get current state</button><button id="resetBtn" class="danger" disabled>Reset meeting</button>
+<p class="hint">Reset clears the current in-memory meeting state and transcript buffer. Use it only when starting a fresh test.</p>
+</section>
+<section class="card"><h2>Latest meeting state</h2><pre id="stateOutput">No state received yet. Connect to the server to request the current state.</pre></section>
+<section class="card"><h2>Connection and message log</h2><pre id="eventLog" class="events">Ready. Connect to ws://localhost:3000.</pre><button id="clearLogBtn" class="secondary">Clear log</button></section>
+</main>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const statusEl=$("status"), connectBtn=$("connectBtn"), disconnectBtn=$("disconnectBtn");
+const sendBtn=$("sendBtn"), sampleBtn=$("sampleBtn"), stateBtn=$("stateBtn"), resetBtn=$("resetBtn");
+const transcriptEl=$("transcript"), stateOutput=$("stateOutput"), eventLog=$("eventLog");
+let socket=null;
+function log(message){
+ const time=new Date().toLocaleTimeString();
+ const old=eventLog.textContent==="Ready. Connect to ws://localhost:3000."?"":eventLog.textContent;
+ eventLog.textContent=(`[${time}] ${message}\n${old}`).slice(0,12000);
+}
+function setConnected(connected){
+ statusEl.textContent=connected?"Connected":"Disconnected";
+ statusEl.className="status "+(connected?"connected":"");
+ connectBtn.disabled=connected;disconnectBtn.disabled=!connected;
+ sendBtn.disabled=!connected;sampleBtn.disabled=!connected;stateBtn.disabled=!connected;resetBtn.disabled=!connected;
+ $("wsUrl").disabled=connected;
+}
+function sendMessage(payload){
+ if(!socket||socket.readyState!==WebSocket.OPEN){log("Cannot send: WebSocket is not connected.");return;}
+ socket.send(JSON.stringify(payload));log("Sent message: "+payload.type);
+}
+connectBtn.addEventListener("click",()=>{
+ const url=$("wsUrl").value.trim();if(!url){log("Enter a WebSocket URL first.");return;}
+ try{socket=new WebSocket(url);}catch(error){log("Connection error: "+error.message);return;}
+ log("Connecting to "+url+"...");
+ socket.addEventListener("open",()=>{setConnected(true);log("Connected successfully.");sendMessage({type:"get_state"});});
+ socket.addEventListener("message",event=>{
+  try{const message=JSON.parse(event.data);log("Received message: "+(message.type||"unknown"));
+   stateOutput.textContent=JSON.stringify(message.type==="update"?message.data:message,null,2);
+  }catch(error){log("Could not parse server message: "+error.message);stateOutput.textContent=String(event.data);}
+ });
+ socket.addEventListener("error",()=>log("WebSocket error. Check server status and URL/port."));
+ socket.addEventListener("close",event=>{setConnected(false);log("Connection closed (code "+event.code+").");socket=null;});
+});
+disconnectBtn.addEventListener("click",()=>{if(socket)socket.close();});
+sendBtn.addEventListener("click",()=>{
+ const text=transcriptEl.value.trim();if(!text){log("Enter transcript text before sending.");return;}
+ sendMessage({type:"transcript",timestamp:new Date().toISOString(),text});transcriptEl.value="";
+});
+sampleBtn.addEventListener("click",()=>{
+ const text="The team discussed the meeting analyzer project and agreed to complete the dashboard before Friday. Anjali will test the frontend, Devika will review the transcript processing, and Jeffin will check the summary output. The team will review the results on Monday and decide what needs improvement.";
+ sendMessage({type:"transcript",timestamp:new Date().toISOString(),text});
+});
+stateBtn.addEventListener("click",()=>sendMessage({type:"get_state"}));
+resetBtn.addEventListener("click",()=>{if(confirm("Reset the current meeting state and transcript buffer?"))sendMessage({type:"reset_meeting"});});
+$("clearLogBtn").addEventListener("click",()=>{eventLog.textContent="";});
+window.addEventListener("beforeunload",()=>{if(socket)socket.close();});
+})();
+</script>
+</body>
+</html>

@@ -108,12 +108,17 @@
                 </div>
               </li>
               <li>
-                <a class="dropdown-item dropdown-item-custom mt-1" href="#" id="dropdownAccountLink">
+                <a class="dropdown-item dropdown-item-custom mt-1" href="#settings" id="dropdownAccountLink">
                   <i class="bi bi-person"></i> Account Settings
                 </a>
               </li>
               <li>
-                <a class="dropdown-item dropdown-item-custom" href="#" id="dropdownPreferencesLink">
+                <a class="dropdown-item dropdown-item-custom" href="#role" id="dropdownRoleLink">
+                  <i class="bi bi-person-badge"></i> Your Role & Objectives
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item dropdown-item-custom" href="#customization" id="dropdownPreferencesLink">
                   <i class="bi bi-sliders"></i> Preferences & Customization
                 </a>
               </li>
@@ -317,7 +322,7 @@
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
                   <div>
                     <h2 class="fs-4 fw-semibold mb-1">Pre-Join Setup</h2>
-                    <p class="text-secondary small mb-0">Configure your audio and video settings for <span class="fw-semibold text-primary" id="preJoinRoomCodeLabel"></span></p>
+                    <p class="text-secondary small mb-0">Configure optional audio and video, or join text-only without browser media permission, for <span class="fw-semibold text-primary" id="preJoinRoomCodeLabel"></span></p>
                   </div>
                 </div>
 
@@ -392,10 +397,24 @@
 
                 <!-- Text-only transcript events; microphone audio stays in the browser. -->
                 <div class="card bg-transparent border-secondary-subtle mb-3" id="transcriptPanel">
+                  <!-- Transcript Tree Visualization -->
+                  <div id="transcriptTreeContainer" class="my-4 d-none">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <h2 class="fs-5 fw-semibold mb-0">Conversation Overview</h2>
+                      <span class="tree-live-badge"><span class="tree-live-dot"></span> Live tree</span>
+                    </div>
+                    <svg id="transcriptTreeSvg" width="100%" height="600"></svg>
+                    <div id="treeStatus" class="small text-muted mt-2">Waiting for transcript data…</div>
+                    <div id="treeDetails" class="tree-details mt-2" aria-live="polite">Select a node to inspect its details.</div>
+                  </div>
                   <div class="card-body py-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                       <span class="small fw-semibold text-primary">Live transcript</span>
                       <span class="small text-muted" id="transcriptionStatus">Off</span>
+                    </div>
+                    <div class="input-group input-group-sm mb-2">
+                      <input type="text" class="form-control" id="manualTranscriptInput" placeholder="Type a transcript update for testing or unsupported browsers">
+                      <button type="button" class="btn btn-outline-primary" id="sendManualTranscriptBtn">Send</button>
                     </div>
                     <div class="small text-secondary" id="transcriptEvents" aria-live="polite">No transcript events yet.</div>
                   </div>
@@ -521,10 +540,10 @@
           </div>
 
           <form id="accountSettingsForm" novalidate>
-            <div class="row g-4 mt-1">
+            <div class="row g-4 mt-1 align-items-start">
               <!-- Personal Information Card -->
               <div class="col-12 col-lg-6">
-                <div class="card h-100 border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="card border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
                   <div class="d-flex align-items-center gap-3 mb-4">
                     <div class="avatar-circle" style="width: 48px; height: 48px; font-size: 1.1rem;">JD</div>
                     <div>
@@ -552,7 +571,7 @@
 
               <!-- Assistant Preferences Card -->
               <div class="col-12 col-lg-6">
-                <div class="card h-100 border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="card border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
                   <div class="d-flex align-items-center gap-3 mb-4">
                     <div class="feature-icon-wrapper mb-0" style="width: 48px; height: 48px; font-size: 1.2rem;">
                       <i class="bi bi-sliders"></i>
@@ -621,75 +640,7 @@
                       </div>
                     </div>
                   </div>
-            </div>
-
-            <!-- Your Role Card Section -->
-            <div class="card border p-4 shadow-sm mt-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
-              <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="feature-icon-wrapper mb-0" style="width: 44px; height: 44px; font-size: 1.1rem;">
-                  <i class="bi bi-person-badge"></i>
                 </div>
-                <div>
-                  <h2 class="fs-5 fw-semibold mb-1">Your Role</h2>
-                  <p class="text-secondary small mb-0">Describe your role in conversations and what key points or evaluation criteria you want the assistant to focus on.</p>
-                </div>
-              </div>
-
-              <!-- Multiline Role Description Entry -->
-              <div class="mb-3">
-                <label for="userRoleDescription" class="form-label small fw-medium text-secondary">Role Description & Evaluation Objectives</label>
-                <textarea class="form-control" id="userRoleDescription" rows="3" placeholder="e.g. I am an investor evaluating startup pitches. I want to understand the business model, revenue potential, major risks, financial requirements, and investment opportunities."></textarea>
-              </div>
-
-              <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                <button type="button" class="btn-primary-custom" id="saveUserRoleBtn">
-                  <i class="bi bi-check-lg"></i> Save Role Description
-                </button>
-                <button type="button" class="btn-secondary-custom d-none" id="editUserRoleBtn">
-                  <i class="bi bi-pencil"></i> Edit Description
-                </button>
-                <button type="button" class="btn-secondary-custom d-none" id="cancelUserRoleBtn">
-                  <i class="bi bi-x-lg"></i> Cancel
-                </button>
-              </div>
-
-              <div id="userRoleFeedback" class="sidebar-status-msg mt-2 mb-3 d-none">
-                <!-- Role description feedback -->
-              </div>
-
-              <!-- Returned Evaluation Points List Section -->
-              <div class="pt-3 border-top" id="rolePointsSection">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                  <div>
-                    <h3 class="fs-6 fw-semibold mb-1">Key Evaluation Points</h3>
-                    <p class="text-secondary small mb-0">Extracted focus points and criteria for your specified role.</p>
-                  </div>
-                  <button type="button" class="btn btn-sm btn-secondary-custom" id="addRolePointBtn">
-                    <i class="bi bi-plus-lg"></i> Add Point
-                  </button>
-                </div>
-
-                <!-- Points Items List -->
-                <div id="rolePointsList" class="d-flex flex-column gap-2">
-                  <!-- Rendered dynamically by JS -->
-                </div>
-
-                <div id="rolePointsStatus" class="sidebar-status-msg status-empty mt-3 d-none">
-                  <!-- Points status message -->
-                </div>
-              </div>
-            </div>
-
-            <!-- Shortcut to Customization Page -->
-            <div class="card border p-4 shadow-sm mt-4" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
-              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-                <div>
-                  <h3 class="fs-6 fw-semibold mb-1">Conversation Priorities & Approach</h3>
-                  <p class="text-secondary small mb-0">Configure what topics the assistant monitors and what questions or response suggestions it provides.</p>
-                </div>
-                <button type="button" class="btn-secondary-custom" id="goToCustomizationBtn">
-                  <i class="bi bi-sliders"></i> Open Customization Page
-                </button>
               </div>
             </div>
 
@@ -707,18 +658,144 @@
               <!-- Dynamic feedback message -->
             </div>
           </form>
+
+          <!-- Navigation Shortcuts to Role and Customization Pages -->
+          <div class="row g-4 mt-2">
+            <div class="col-12 col-md-6">
+              <div class="card border p-4 shadow-sm h-100" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="feature-icon-wrapper mb-0" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                    <i class="bi bi-person-badge"></i>
+                  </div>
+                  <div>
+                    <h3 class="fs-6 fw-semibold mb-1">Your Role & Objectives</h3>
+                    <p class="text-secondary small mb-0">Describe your role in conversations and configure key evaluation criteria.</p>
+                  </div>
+                </div>
+                <div class="mt-auto pt-2">
+                  <button type="button" class="btn-secondary-custom w-100" id="goToRoleBtn">
+                    <i class="bi bi-person-badge"></i> Open Role Page
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <div class="card border p-4 shadow-sm h-100" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="feature-icon-wrapper mb-0" style="width: 44px; height: 44px; font-size: 1.1rem;">
+                    <i class="bi bi-sliders"></i>
+                  </div>
+                  <div>
+                    <h3 class="fs-6 fw-semibold mb-1">Conversation Priorities & Approach</h3>
+                    <p class="text-secondary small mb-0">Configure what topics the assistant monitors and question suggestions.</p>
+                  </div>
+                </div>
+                <div class="mt-auto pt-2">
+                  <button type="button" class="btn-secondary-custom w-100" id="goToCustomizationBtn">
+                    <i class="bi bi-sliders"></i> Open Customization Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Customization View Container (Two-Column Side-by-Side Layout) -->
+        <!-- Role View Container (Independent Page) -->
+        <div id="roleView" class="d-none">
+          <div class="mb-4">
+            <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="roleBackBtn">
+              <i class="bi bi-arrow-left"></i> Back to Settings
+            </button>
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="feature-icon-wrapper mb-0" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                <i class="bi bi-person-badge"></i>
+              </div>
+              <div>
+                <h1 class="display-6 fw-semibold mb-1">Your Role & Objectives</h1>
+                <p class="lead fs-6 text-secondary mb-0" style="max-width: 680px;">
+                  Describe your role in conversations and what key points or evaluation criteria you want the assistant to focus on.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-4 align-items-start">
+            <!-- Role Description Card -->
+            <div class="col-12 col-lg-6">
+              <div class="card border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="mb-3">
+                  <h2 class="fs-5 fw-semibold mb-1">Role Description</h2>
+                  <p class="text-secondary small mb-0">Define your perspective, evaluation goals, and focus areas.</p>
+                </div>
+
+                <!-- Multiline Role Description Entry -->
+                <div class="mb-3">
+                  <label for="userRoleDescription" class="form-label small fw-medium text-secondary">Role Description & Evaluation Objectives</label>
+                  <textarea class="form-control" id="userRoleDescription" rows="5" placeholder="e.g. I am an investor evaluating startup pitches. I want to understand the business model, revenue potential, major risks, financial requirements, and investment opportunities."></textarea>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                  <button type="button" class="btn-primary-custom" id="saveUserRoleBtn">
+                    <i class="bi bi-check-lg"></i> Save Role Description
+                  </button>
+                  <button type="button" class="btn-secondary-custom d-none" id="editUserRoleBtn">
+                    <i class="bi bi-pencil"></i> Edit Description
+                  </button>
+                  <button type="button" class="btn-secondary-custom d-none" id="cancelUserRoleBtn">
+                    <i class="bi bi-x-lg"></i> Cancel
+                  </button>
+                </div>
+
+                <div id="userRoleFeedback" class="sidebar-status-msg mt-2 mb-0 d-none">
+                  <!-- Role description feedback -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Returned Evaluation Points List Section -->
+            <div class="col-12 col-lg-6">
+              <div class="card border p-4 shadow-sm" style="border-radius: var(--radius-md); border-color: var(--border-color) !important;">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                  <div>
+                    <h2 class="fs-5 fw-semibold mb-1">Key Evaluation Points</h2>
+                    <p class="text-secondary small mb-0">Extracted focus points and criteria for your specified role.</p>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-secondary-custom text-nowrap" id="addRolePointBtn">
+                    <i class="bi bi-plus-lg"></i> Add Point
+                  </button>
+                </div>
+
+                <!-- Points Items List -->
+                <div id="rolePointsList" class="d-flex flex-column gap-2 mb-3">
+                  <!-- Rendered dynamically by JS -->
+                </div>
+
+                <div id="rolePointsStatus" class="sidebar-status-msg status-empty d-none">
+                  <!-- Points status message -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customization View Container (Independent Page) -->
         <div id="customizationView" class="d-none">
           <div class="mb-4">
             <button type="button" class="btn btn-sm btn-secondary-custom mb-3" id="customizationBackBtn">
               <i class="bi bi-arrow-left"></i> Back to Settings
             </button>
-            <h1 class="display-6 fw-semibold mb-2">Conversation Customization</h1>
-            <p class="lead fs-6 text-secondary mb-0" style="max-width: 680px;">
-              Define what information matters to you and choose the conversation style and question suggestions the assistant should provide.
-            </p>
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="feature-icon-wrapper mb-0" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                <i class="bi bi-sliders"></i>
+              </div>
+              <div>
+                <h1 class="display-6 fw-semibold mb-1">Conversation Customization</h1>
+                <p class="lead fs-6 text-secondary mb-0" style="max-width: 680px;">
+                  Define what information matters to you and choose the conversation style and question suggestions the assistant should provide.
+                </p>
+              </div>
+            </div>
           </div>
 
           <form id="customizationForm" novalidate>
